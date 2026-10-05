@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Ottelupalaute – Kipinän Basket</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/admin/admin.js"></script>
+</head>
+<body>
+  <main class="admin">
+    <div class="page-head">
+      <div>
+        <h1>Ottelutapahtumat</h1>
+        <div class="muted">Katsojapalaute kaikista kotiotteluista yhdellä silmäyksellä.</div>
+      </div>
+      <div class="actions"><button class="btn primary" id="new-btn">+ Uusi ottelu</button></div>
+    </div>
+
+    <section class="card" id="new-card" hidden>
+      <h2>Uusi ottelutapahtuma</h2>
+      <p class="desc">Ottelulle luodaan oma kysely ja QR-koodi, jonka voit tulostaa halliin.</p>
+      <form id="new-form" class="form-grid">
+        <label class="field">Vastustaja *<input name="opponent" required maxlength="100" placeholder="esim. Karhu Basket"></label>
+        <label class="field">Päivä ja aika *<input name="date" type="datetime-local" required></label>
+        <label class="field">Halli<input name="venue" maxlength="100" placeholder="esim. Kipinä-areena"></label>
+        <label class="field">Sarja<input name="series" maxlength="60" placeholder="esim. I divisioona"></label>
+        <label class="field">Katsojamäärä <span class="hint">voi lisätä myöhemmin</span><input name="attendance" type="number" min="0" inputmode="numeric"></label>
+        <div class="row" style="align-self:end">
+          <button class="btn primary" type="submit">Luo ottelu ja QR-koodi</button>
+          <button class="btn" type="button" id="new-cancel">Peruuta</button>
+        </div>
+        <p id="new-err" class="error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <div id="content"><p class="muted">Ladataan…</p></div>
+  </main>
+
+<script>
+K.topbar('home');
+const $ = (s) => document.querySelector(s);
+const { esc, num, fmtDate, shortDate } = K;
+
+$('#new-btn').onclick = () => { $('#new-card').hidden = false; $('#new-form').opponent.focus(); };
+$('#new-cancel').onclick = () => { $('#new-card').hidden = true; };
+$('#new-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.target;
+  try {
+    const { event } = await K.api('/api/events', { method: 'POST', body: {
+      opponent: f.opponent.value, date: f.date.value, venue: f.venue.value, series: f.series.value, attendance: f.attendance.value,
+    } });
+    location.href = `/admin/ottelu?id=${event.id}&uusi=1`;
+  } catch (err) {
+    $('#new-err').textContent = err.message;
+    $('#new-err').hidden = false;
+  }
+});
+
+async function load() {
+  const { events, total, insights, questions } = await K.api('/api/events');
+  const aspects = questions.filter((q) => q.group === 'aspects');
+  if (!events.length) {
+    $('#content').innerHTML = `<div class="card empty"><h2>Ei vielä otteluita</h2>
+      <p>Luo ensimmäinen ottelutapahtuma, tulosta QR-koodi halliin ja seuraa palautetta täältä.</p></div>`;
+    $('#new-card').hidden = false;
+    return;
+  }
+  const chrono = [...events].reverse();
+  const withData = events.filter((e) => e.stats.count > 0).length;
+  const name = (e) => `${esc(e.opponent)} ${shortDate(e.date)}`;
+
+  $('#content').innerHTML = `
+    <div class="grid">
+      <div class="tiles">
+        <div class="tile"><div class="label">Otteluita</div><div class="value">${events.length}</div><div class="sub">${withData} joissa vastauksia</div></div>
+        <div class="tile"><div class="label">Vastauksia yhteensä</div><div class="value">${total.count}</div><div class="sub">keskimäärin ${withData ? Math.round(total.count / withData) : 0} / ottelu</div></div>
+        <div class="tile"><div class="label">Kokonaisarvio</div><div class="value">${num(total.overall.avg)}<span class="muted" style="font-size:1rem"> / 5</span></div><div class="sub">kaikkien otteluiden keskiarvo</div></div>
+        <div class="tile"><div class="label">Suositteluindeksi (NPS)</div><div class="value" style="color:${K.npsTone(total.nps.score)}">${K.signed(total.nps.score)}</div><div class="sub">asteikko −100 … +100</div></div>
+      </div>
+
+      <div class="grid two">
+        <section class="card">
+          <h2>Kokonaisarvio ottelittain</h2>
+          <p class="desc">Keskiarvo asteikolla 1–5. Katkoviiva = kaikkien otteluiden keskiarvo.</p>
+          ${K.lineChart({
+            points: chrono.map((e) => ({ x: shortDate(e.date), y: e.stats.overall, href: `/admin/ottelu?id=${e.id}`,
+              tip: `<b>${esc(e.opponent)}</b> ${fmtDate(e.date, false)}<br>Kokonaisarvio ${num(e.stats.overall)} (${e.stats.count} vastausta)` })),
+            min: 1, max: 5, ticks: [1, 2, 3, 4, 5], format: (v) => v, ref: total.overall.avg, refLabel: 'Keskiarvo' })}
+        </section>
+        <section class="card">
+          <h2>Suositteluindeksi (NPS) ottelittain</h2>
+          <p class="desc">Suosittelijoiden osuus miinus arvostelijoiden osuus. Yli 0 on hyvä, yli 30 erinomainen.</p>
+          ${K.lineChart({
+            points: chrono.map((e) => ({ x: shortDate(e.date), y: e.stats.nps, href: `/admin/ottelu?id=${e.id}`,
+              tip: `<b>${esc(e.opponent)}</b> ${fmtDate(e.date, false)}<br>NPS ${K.signed(e.stats.nps)} (${e.stats.count} vastausta)` })),
+            min: -100, max: 100, ticks: [-100, -50, 0, 50, 100], format: (v) => (v > 0 ? `+${v}` : v), ref: 0, refLabel: 'NPS 0' })}
+        </section>
+      </div>
+
+      <div class="grid two">
+        <section class="card">
+          <h2>Osa-alueet, kaikki ottelut</h2>
+          <p class="desc">Keskiarvo 1–5, heikoimmasta vahvimpaan. Tästä näkee, mihin kehitystyö kannattaa kohdistaa.</p>
+          ${K.hbars([...total.aspects].filter((a) => a.n).sort((a, b) => a.avg - b.avg).map((a) => ({
+            label: a.label, value: a.avg, max: 5, display: num(a.avg), tip: `<b>${esc(a.label)}</b><br>Keskiarvo ${num(a.avg, 2)} · ${a.n} arviota` })))}
+        </section>
+        <section class="card">
+          <h2>Havainnot</h2>
+          <p class="desc">Automaattisesti poimitut nostot kaikista vastauksista.</p>
+          ${K.insightsList(insights)}
+        </section>
+      </div>
+
+      <section class="card">
+        <h2>Otteluiden vertailu</h2>
+        <p class="desc">Avaa ottelun oma dashboard klikkaamalla riviä. Osa-alueiden solut: tummempi sininen = parempi arvio.</p>
+        <div class="table-wrap">
+          <table class="data">
+            <thead><tr>
+              <th>Ottelu</th><th>Päivä</th><th>Kysely</th><th class="num">Vastauksia</th><th class="num">Vastaus-%</th>
+              <th class="num">Arvio</th><th class="num">NPS</th>
+              ${aspects.map((a) => `<th class="num" title="${esc(a.label)}">${esc(a.short)}</th>`).join('')}
+            </tr></thead>
+            <tbody>
+              ${events.map((e) => `<tr style="cursor:pointer" onclick="location.href='/admin/ottelu?id=${e.id}'">
+                <td><a href="/admin/ottelu?id=${e.id}"><b>Kipinä – ${esc(e.opponent)}</b></a></td>
+                <td class="tnum nowrap">${fmtDate(e.date, false)}</td>
+                <td><span class="pill ${e.is_open ? 'open' : 'closed'}">${e.is_open ? 'Auki' : 'Suljettu'}</span></td>
+                <td class="num">${e.stats.count}</td>
+                <td class="num">${e.stats.responseRate == null ? '–' : e.stats.responseRate + ' %'}</td>
+                <td class="num">${num(e.stats.overall)}</td>
+                <td class="num">${K.signed(e.stats.nps)}</td>
+                ${aspects.map((a) => `<td class="num">${K.heat(e.stats.aspects[a.id])}</td>`).join('')}
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>`;
+  K.mountCharts($('#content'));
+}
+load().catch((e) => { $('#content').innerHTML = `<p class="error">${esc(e.message)}</p>`; });
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Kirjaudu – Kipinän ottelupalaute</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="login">
+    <div class="card">
+      <p class="brandmark"><span class="spark" aria-hidden="true">✦</span> Kipinä · Ottelupalaute</p>
+      <form id="f">
+        <label class="field">Salasana
+          <input type="password" name="password" autocomplete="current-password" required autofocus>
+        </label>
+        <p id="err" class="error" role="alert" hidden></p>
+        <button class="btn primary" type="submit">Kirjaudu</button>
+      </form>
+    </div>
+  </div>
+<script>
+document.getElementById('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = document.getElementById('err');
+  err.hidden = true;
+  const r = await fetch('/api/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: e.target.password.value }),
+  });
+  if (r.ok) {
+    const next = new URLSearchParams(location.search).get('next');
+    location.href = next && next.startsWith('/admin') ? next : '/admin/';
+  } else {
+    err.textContent = (await r.json().catch(() => ({}))).error || 'Kirjautuminen epäonnistui.';
+    err.hidden = false;
+  }
+});
+</script>
+</body>
+</html>

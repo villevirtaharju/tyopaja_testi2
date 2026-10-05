@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Kipinän ottelupalaute</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="survey">
+    <header><span class="brandmark"><span class="spark" aria-hidden="true">✦</span> Kipinän Basket</span></header>
+    <div id="loading" class="muted">Ladataan kyselyä…</div>
+    <div id="fatal" class="card" hidden></div>
+
+    <form id="form" hidden novalidate>
+      <div class="match">
+        <div class="small muted">Ottelupalaute · vie noin minuutin</div>
+        <h1 id="match-title"></h1>
+        <div class="small muted" id="match-meta"></div>
+      </div>
+      <div id="questions"></div>
+      <div class="submit-bar">
+        <p id="form-error" class="error" role="alert" hidden></p>
+        <button class="btn primary" type="submit">Lähetä palaute</button>
+        <p class="small muted">Vastaukset kerätään nimettömästi ja niitä käytetään otteluiden kehittämiseen.</p>
+      </div>
+    </form>
+
+    <div id="thanks" class="thanks" hidden>
+      <div class="big" aria-hidden="true">🏀</div>
+      <h1>Kiitos palautteestasi!</h1>
+      <p class="muted">Teet seuraavista Kipinän otteluista entistä parempia. Nähdään taas katsomossa!</p>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const code = location.pathname.split('/').filter(Boolean).pop();
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const storeKey = `kipina-vastattu-${code}`;
+  const answeredLocally = () => { try { return localStorage.getItem(storeKey) === '1'; } catch { return false; } };
+
+  function fmtDate(d) {
+    const dt = new Date(d.length === 10 ? d + 'T12:00' : d);
+    const opts = { weekday: 'short', day: 'numeric', month: 'numeric', year: 'numeric' };
+    if (d.length > 10) Object.assign(opts, { hour: '2-digit', minute: '2-digit' });
+    return dt.toLocaleString('fi-FI', opts);
+  }
+
+  function fatal(html) {
+    $('#loading').hidden = true;
+    $('#fatal').innerHTML = html;
+    $('#fatal').hidden = false;
+  }
+
+  function scale(q, from, to, name = q.id) {
+    let html = `<div class="scale ${to - from === 4 ? 'r5' : 'r11'}">`;
+    for (let i = from; i <= to; i++) {
+      const label = q.type === 'rating' ? `${i} / 5` : `${i}`;
+      html += `<label class="opt"><input type="radio" name="${name}" value="${i}" aria-label="${label}"><span>${i}</span></label>`;
+    }
+    html += '</div>';
+    if (q.low || q.high) html += `<div class="scale-ends"><span>${from} = ${esc(q.low || '')}</span><span>${to} = ${esc(q.high || '')}</span></div>`;
+    return html;
+  }
+
+  function renderQuestion(q) {
+    const req = q.required ? ' <span class="req" aria-hidden="true">*</span>' : '';
+    const hint = q.hint ? ` <span class="small muted">${esc(q.hint)}</span>` : '';
+    switch (q.type) {
+      case 'rating':
+        return `<fieldset><legend>${esc(q.label)}${req}</legend>${scale(q, 1, 5)}</fieldset>`;
+      case 'nps':
+        return `<fieldset><legend>${esc(q.label)}${req}</legend>${scale(q, 0, 10)}</fieldset>`;
+      case 'single':
+      case 'multi': {
+        const type = q.type === 'single' ? 'radio' : 'checkbox';
+        const opts = q.options.map((o) => `<label class="opt"><input type="${type}" name="${q.id}" value="${esc(o.id)}"><span>${esc(o.label)}</span></label>`).join('');
+        return `<fieldset><legend>${esc(q.label)}${req}${hint}</legend><div class="choices">${opts}</div></fieldset>`;
+      }
+      case 'text':
+        return `<label class="qlabel" for="q-${q.id}" style="display:block">${esc(q.label)}</label>
+          <textarea id="q-${q.id}" name="${q.id}" maxlength="${q.maxLength}" placeholder="Vapaaehtoinen"></textarea>`;
+    }
+  }
+
+  function render(questions) {
+    let html = '';
+    let aspectsOpen = false;
+    for (const q of questions) {
+      if (q.group === 'aspects') {
+        if (!aspectsOpen) {
+          html += `<div class="q"><div class="qlabel">Arvioi tapahtuman osa-alueet</div>
+            <div class="small muted" style="margin-bottom:.4rem">1 = huono, 5 = erinomainen. Ohita ne, joita et kokeillut.</div>`;
+          aspectsOpen = true;
+        }
+        html += `<div class="aspect-row"><fieldset><legend class="qlabel">${esc(q.label)}</legend>${scale(q, 1, 5)}</fieldset></div>`;
+        continue;
+      }
+      if (aspectsOpen) { html += '</div>'; aspectsOpen = false; }
+      html += `<div class="q">${renderQuestion(q)}</div>`;
+    }
+    if (aspectsOpen) html += '</div>';
+    $('#questions').innerHTML = html;
+  }
+
+  function collect(questions) {
+    const fd = new FormData($('#form'));
+    const answers = {};
+    for (const q of questions) {
+      if (q.type === 'multi') answers[q.id] = fd.getAll(q.id);
+      else if (q.type === 'rating' || q.type === 'nps') { const v = fd.get(q.id); if (v !== null) answers[q.id] = Number(v); }
+      else { const v = fd.get(q.id); if (v) answers[q.id] = v; }
+    }
+    return answers;
+  }
+
+  function showThanks() {
+    $('#form').hidden = true;
+    $('#loading').hidden = true;
+    $('#thanks').hidden = false;
+    window.scrollTo(0, 0);
+  }
+
+  fetch(`/api/public/events/${encodeURIComponent(code)}`)
+    .then(async (r) => ({ ok: r.ok, data: await r.json() }))
+    .then(({ ok, data }) => {
+      if (!ok) return fatal(`<h2>Kyselyä ei löytynyt</h2><p class="muted">Tarkista QR-koodi tai osoite.</p>`);
+      const { event, questions, alreadyAnswered } = data;
+      if (alreadyAnswered || answeredLocally()) return showThanks();
+      if (!event.is_open) return fatal(`<h2>Kysely on suljettu</h2><p class="muted">Kiitos mielenkiinnosta! Tämän ottelun palautekysely ei ole enää auki.</p>`);
+
+      $('#match-title').textContent = `Kipinä – ${event.opponent}`;
+      $('#match-meta').textContent = [fmtDate(event.date), event.venue, event.series].filter(Boolean).join(' · ');
+      document.title = `Palaute: Kipinä – ${event.opponent}`;
+      render(questions);
+      $('#loading').hidden = true;
+      $('#form').hidden = false;
+
+      $('#form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const err = $('#form-error');
+        err.hidden = true;
+        const answers = collect(questions);
+        const missing = questions.find((q) => q.required && answers[q.id] === undefined);
+        if (missing) {
+          err.textContent = `Vastaa vielä kysymykseen: ${missing.label}`;
+          err.hidden = false;
+          document.querySelector(`[name="${missing.id}"]`)?.closest('.q')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return;
+        }
+        const btn = e.submitter || $('#form button[type=submit]');
+        btn.disabled = true;
+        btn.textContent = 'Lähetetään…';
+        try {
+          const r = await fetch(`/api/public/events/${encodeURIComponent(code)}/responses`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers }),
+          });
+          const data = await r.json().catch(() => ({}));
+          if (r.ok || r.status === 409) {
+            try { localStorage.setItem(storeKey, '1'); } catch {}
+            return showThanks();
+          }
+          throw new Error(data.error || 'Lähetys epäonnistui.');
+        } catch (ex) {
+          err.textContent = ex.message === 'Failed to fetch' ? 'Yhteys katkesi. Yritä uudelleen.' : ex.message;
+          err.hidden = false;
+          btn.disabled = false;
+          btn.textContent = 'Lähetä palaute';
+        }
+      });
+    })
+    .catch(() => fatal('<h2>Yhteysvirhe</h2><p class="muted">Kyselyn lataus epäonnistui. Päivitä sivu.</p>'));
+})();
+</script>
+</body>
+</html>

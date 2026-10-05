@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Ottelun dashboard – Kipinän Basket</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/admin/admin.js"></script>
+</head>
+<body>
+  <main class="admin" id="content"><p class="muted">Ladataan…</p></main>
+
+<script>
+K.topbar();
+const $ = (s) => document.querySelector(s);
+const { esc, num, fmtDate } = K;
+const params = new URLSearchParams(location.search);
+const id = params.get('id');
+let state;
+let commentFilter = 'all';
+
+async function load() {
+  state = await K.api(`/api/events/${encodeURIComponent(id)}`);
+  render();
+}
+
+function choiceCard(c, desc) {
+  const max = Math.max(1, ...c.options.map((o) => o.count));
+  const items = c.options.map((o) => ({
+    label: o.label, value: o.count, max, display: c.n ? `${o.pct} %` : '–',
+    tip: `<b>${esc(o.label)}</b><br>${o.count} / ${c.n} vastaajaa (${o.pct ?? 0} %)`,
+  }));
+  return `<section class="card"><h2>${esc(c.label)}</h2><p class="desc">${desc} · ${c.n} vastaajaa</p>${c.n ? K.hbars(items) : '<p class="muted small">Ei vastauksia.</p>'}</section>`;
+}
+
+function commentsHtml(comments) {
+  const list = comments.filter((c) =>
+    commentFilter === 'all' || (commentFilter === 'improve' ? c.improve : commentFilter === 'best' ? c.best : c.overall != null && c.overall <= 2));
+  if (!list.length) return '<p class="muted small">Ei kommentteja tällä suodatuksella.</p>';
+  return `<ul class="comments">${list.map((c) => `<li>
+    <div class="meta">${new Date(c.created_at).toLocaleString('fi-FI', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' })}${c.overall != null ? ` · kokonaisarvio ${c.overall}/5` : ''}</div>
+    ${c.best ? `<p><b>Parasta:</b> ${esc(c.best)}</p>` : ''}
+    ${c.improve ? `<p><b>Parannettavaa:</b> ${esc(c.improve)}</p>` : ''}</li>`).join('')}</ul>`;
+}
+
+function render() {
+  const { event: e, stats: s, baseline, insights } = state;
+  document.title = `Kipinä – ${e.opponent} · Dashboard`;
+  const diff = s.overall.avg != null && baseline.overall != null ? Math.round((s.overall.avg - baseline.overall) * 100) / 100 : null;
+  const npsTotal = s.nps.n || 1;
+  const seg = (k) => Math.round((s.nps[k] / npsTotal) * 100);
+  const isNew = params.get('uusi') === '1';
+  if (isNew) history.replaceState(null, '', `?id=${e.id}`);
+  params.delete('uusi');
+
+  $('#content').innerHTML = `
+    <div class="page-head">
+      <div>
+        <div class="small muted"><a href="/admin/">← Kaikki ottelut</a></div>
+        <h1>Kipinä – ${esc(e.opponent)}</h1>
+        <div class="muted">${[fmtDate(e.date), e.venue, e.series].filter(Boolean).map(esc).join(' · ')}
+          · <span class="pill ${e.is_open ? 'open' : 'closed'}">${e.is_open ? 'Kysely auki' : 'Kysely suljettu'}</span></div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="toggle">${e.is_open ? 'Sulje kysely' : 'Avaa kysely'}</button>
+        <a class="btn" href="/api/events/${e.id}/export.csv">Lataa CSV</a>
+        <button class="btn" id="refresh">Päivitä</button>
+      </div>
+    </div>
+
+    ${isNew ? `<div class="card" style="border-color:var(--good)"><b>Ottelu luotu.</b> Tulosta alla oleva QR-koodi halliin (katsomo, kioski, uloskäynnit) tai näytä se screenillä ottelun aikana.</div>` : ''}
+
+    <section class="card">
+      <div class="qr-panel">
+        <img src="/api/events/${e.id}/qr.png?size=360" alt="QR-koodi kyselyyn" width="180" height="180">
+        <div>
+          <h2>QR-koodi ja kyselyn osoite</h2>
+          <p class="url" id="url">${esc(e.url)}</p>
+          <div class="row" style="margin-top:.75rem">
+            <a class="btn primary sm" href="/admin/juliste?id=${e.id}" target="_blank">Tulostettava juliste</a>
+            <a class="btn sm" href="/api/events/${e.id}/qr.png?download=1&size=1200">Lataa PNG</a>
+            <a class="btn sm" href="/api/events/${e.id}/qr.svg?download=1">Lataa SVG</a>
+            <button class="btn sm" id="copy">Kopioi linkki</button>
+            <a class="btn sm" href="${esc(e.url)}" target="_blank">Avaa kysely</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="tiles">
+      <div class="tile"><div class="label">Vastauksia</div><div class="value">${s.count}</div>
+        <div class="sub">${s.responseRate != null ? `${s.responseRate} % katsojista (${e.attendance})` : 'lisää katsojamäärä alla'}</div></div>
+      <div class="tile"><div class="label">Kokonaisarvio</div><div class="value">${num(s.overall.avg)}<span class="muted" style="font-size:1rem"> / 5</span></div>
+        <div class="sub">${diff == null ? 'ei vertailukohtaa vielä' : `${diff >= 0 ? '+' : '−'}${num(Math.abs(diff), 2)} vs. muiden otteluiden ka ${num(baseline.overall)}`}</div></div>
+      <div class="tile"><div class="label">Suositteluindeksi (NPS)</div><div class="value" style="color:${K.npsTone(s.nps.score)}">${K.signed(s.nps.score)}</div>
+        <div class="sub">${baseline.count ? `muut ottelut ${K.signed(baseline.nps)}` : 'ei vertailukohtaa vielä'}</div></div>
+      <div class="tile"><div class="label">Tulee uudelleen</div><div class="value">${returnShare(s)}</div>
+        <div class="sub">"kyllä varmasti" tai "todennäköisesti"</div></div>
+    </div>
+
+    <div class="grid two">
+      <section class="card"><h2>Havainnot</h2><p class="desc">Automaattiset nostot päätöksenteon tueksi.</p>${K.insightsList(insights)}</section>
+      <section class="card">
+        <h2>Osa-alueiden arviot</h2>
+        <p class="desc">Keskiarvo 1–5, heikoimmasta vahvimpaan.</p>
+        ${K.hbars([...s.aspects].filter((a) => a.n).sort((a, b) => a.avg - b.avg).map((a) => ({
+          label: a.label, value: a.avg, max: 5, display: num(a.avg), tip: `<b>${esc(a.label)}</b><br>Keskiarvo ${num(a.avg, 2)} · ${a.n} arviota` })))}
+      </section>
+    </div>
+
+    <div class="grid two">
+      <section class="card">
+        <h2>Kokonaisarvion jakauma</h2><p class="desc">${s.overall.n} arviota</p>
+        ${K.columns(s.overall.dist, ['1', '2', '3', '4', '5'])}
+      </section>
+      <section class="card">
+        <h2>Suosittelu (NPS)</h2>
+        <p class="desc">0–6 arvostelijat · 7–8 passiiviset · 9–10 suosittelijat · ${s.nps.n} vastausta</p>
+        ${s.nps.n ? `
+        <div class="segbar" role="img" aria-label="Arvostelijat ${seg('detractors')} %, passiiviset ${seg('passives')} %, suosittelijat ${seg('promoters')} %">
+          ${s.nps.detractors ? `<div style="flex:${s.nps.detractors};background:var(--bad)" data-tip="Arvostelijat (0–6): ${s.nps.detractors} (${seg('detractors')} %)"></div>` : ''}
+          ${s.nps.passives ? `<div style="flex:${s.nps.passives};background:var(--neutral-mid)" data-tip="Passiiviset (7–8): ${s.nps.passives} (${seg('passives')} %)"></div>` : ''}
+          ${s.nps.promoters ? `<div style="flex:${s.nps.promoters};background:var(--series-1)" data-tip="Suosittelijat (9–10): ${s.nps.promoters} (${seg('promoters')} %)"></div>` : ''}
+        </div>
+        <div class="legend">
+          <span><i style="background:var(--bad)"></i>Arvostelijat ${seg('detractors')} %</span>
+          <span><i style="background:var(--neutral-mid)"></i>Passiiviset ${seg('passives')} %</span>
+          <span><i style="background:var(--series-1)"></i>Suosittelijat ${seg('promoters')} %</span>
+        </div>
+        <div style="margin-top:1rem">${K.columns(s.nps.dist, s.nps.dist.map((_, i) => String(i)))}</div>` : '<p class="muted small">Ei vastauksia.</p>'}
+      </section>
+    </div>
+
+    <div class="grid three">
+      ${choiceCard(s.choices.source, 'Osuus vastaajista, voi valita useita')}
+      ${choiceCard(s.choices.visits, 'Uusien ja palaavien katsojien osuus')}
+      ${choiceCard(s.choices.return, 'Paluuaikomus')}
+      ${choiceCard(s.choices.company, 'Seurue')}
+      ${choiceCard(s.choices.age, 'Ikärakenne')}
+    </div>
+
+    <section class="card">
+      <div class="page-head" style="align-items:center">
+        <div><h2>Avoimet kommentit</h2><p class="desc" style="margin:0">${s.comments.length} kommenttia, uusimmat ensin</p></div>
+        <select id="cfilter" style="width:auto">
+          <option value="all">Kaikki</option>
+          <option value="improve">Vain parannusehdotukset</option>
+          <option value="best">Vain kehut</option>
+          <option value="low">Tyytymättömät (arvio 1–2)</option>
+        </select>
+      </div>
+      <div id="comments" style="margin-top:1rem">${commentsHtml(s.comments)}</div>
+    </section>
+
+    <section class="card">
+      <h2>Ottelun tiedot</h2>
+      <p class="desc">Lisää katsojamäärä ottelun jälkeen, niin näet vastausprosentin. Muistiinpanoihin voi kirjata esim. teemapäivän tai kampanjan, jotta vertailu muihin otteluihin on helpompaa.</p>
+      <form id="edit" class="form-grid">
+        <label class="field">Vastustaja<input name="opponent" value="${esc(e.opponent)}" required maxlength="100"></label>
+        <label class="field">Päivä ja aika<input name="date" type="datetime-local" value="${esc(e.date.length === 10 ? e.date + 'T00:00' : e.date)}" required></label>
+        <label class="field">Halli<input name="venue" value="${esc(e.venue)}" maxlength="100"></label>
+        <label class="field">Sarja<input name="series" value="${esc(e.series)}" maxlength="60"></label>
+        <label class="field">Katsojamäärä<input name="attendance" type="number" min="0" value="${e.attendance ?? ''}"></label>
+        <label class="field" style="grid-column:1/-1">Muistiinpanot<textarea name="notes" maxlength="2000">${esc(e.notes)}</textarea></label>
+        <div class="row" style="grid-column:1/-1">
+          <button class="btn primary" type="submit">Tallenna</button>
+          <span id="saved" class="small muted" hidden>Tallennettu.</span>
+          <span id="edit-err" class="error" hidden></span>
+          <button class="btn danger" type="button" id="delete" style="margin-left:auto">Poista ottelu</button>
+        </div>
+      </form>
+    </section>`;
+
+  $('#cfilter').value = commentFilter;
+  $('#cfilter').onchange = (ev) => { commentFilter = ev.target.value; $('#comments').innerHTML = commentsHtml(s.comments); };
+  $('#refresh').onclick = load;
+  $('#copy').onclick = async () => { await navigator.clipboard.writeText(e.url); $('#copy').textContent = 'Kopioitu!'; };
+  $('#toggle').onclick = async () => { await K.api(`/api/events/${e.id}`, { method: 'PATCH', body: { is_open: !e.is_open } }); load(); };
+  $('#delete').onclick = async () => {
+    if (!confirm(`Poistetaanko ottelu ja kaikki sen ${s.count} vastausta pysyvästi?`)) return;
+    await K.api(`/api/events/${e.id}`, { method: 'DELETE' });
+    location.href = '/admin/';
+  };
+  $('#edit').onsubmit = async (ev) => {
+    ev.preventDefault();
+    const f = ev.target;
+    $('#edit-err').hidden = true;
+    try {
+      await K.api(`/api/events/${e.id}`, { method: 'PATCH', body: {
+        opponent: f.opponent.value, date: f.date.value, venue: f.venue.value, series: f.series.value,
+        attendance: f.attendance.value, notes: f.notes.value,
+      } });
+      await load();
+      $('#saved').hidden = false;
+    } catch (err) {
+      $('#edit-err').textContent = err.message;
+      $('#edit-err').hidden = false;
+    }
+  };
+}
+
+function returnShare(s) {
+  const r = s.choices.return;
+  if (!r.n) return '–';
+  const yes = r.options.filter((o) => o.id === 'yes' || o.id === 'likely').reduce((a, o) => a + o.count, 0);
+  return `${Math.round((yes / r.n) * 100)} %`;
+}
+
+if (!id) location.href = '/admin/';
+else load().catch((err) => { $('#content').innerHTML = `<p class="error">${esc(err.message)}</p><p><a href="/admin/">← Kaikki ottelut</a></p>`; });
+// Päivitä luvut automaattisesti minuutin välein ottelun aikana.
+setInterval(() => { if (state?.event.is_open && document.visibilityState === 'visible' && !document.activeElement?.closest('form')) load().catch(() => {}); }, 60000);
+</script>
+</body>
+</html>
