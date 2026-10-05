@@ -30,7 +30,7 @@ const QUESTIONS = [
     id: 'nps',
     type: 'nps',
     required: true,
-    label: 'Kuinka todennäköisesti suosittelisit Kipinän Basketin kotiottelua ystävällesi?',
+    label: 'Kuinka todennäköisesti suosittelisit Kipinä Basketin kotiottelua ystävällesi?',
     low: 'En lainkaan',
     high: 'Erittäin todennäköisesti',
   },

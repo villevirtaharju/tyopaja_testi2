@@ -32,7 +32,7 @@ const K = (() => {
     const el = document.createElement('header');
     el.className = 'topbar';
     el.innerHTML = `<div class="inner">
-      <a href="/admin/" class="brandmark" style="color:inherit;text-decoration:none"><span class="spark" aria-hidden="true">✦</span> Kipinä · Ottelupalaute</a>
+      <a href="/admin/" class="brandmark"><img class="logo" src="/brand/logo" alt=""><span class="wordmark"><span class="w1">Kipinä</span> <span class="w2">Basket</span></span><span class="sub">Ottelupalaute</span></a>
       <nav>
         <a class="btn sm" href="/admin/" ${active === 'home' ? 'aria-current="page"' : ''}>Kaikki ottelut</a>
         <button class="btn sm" id="logout">Kirjaudu ulos</button>

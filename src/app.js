@@ -1,15 +1,25 @@
+const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const express = require('express');
 const QRCode = require('qrcode');
 const { QUESTIONS, byId, validateAnswers } = require('./questions');
-const { computeStats, insights } = require('./stats');
+const { computeStats, insights, incentiveInsight } = require('./stats');
+const raffle = require('./raffle');
 
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 const SESSION_COOKIE = 'kp_admin';
 const SESSION_HOURS = 12;
+const LOGO_FILES = ['logo.svg', 'logo.png', 'logo.webp', 'logo.jpg', 'placeholder-logo.svg'];
 
-function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = 'loopback, linklocal, uniquelocal' }) {
+function createApp({
+  db,
+  adminPassword,
+  sessionSecret,
+  publicUrl,
+  trustProxy = 'loopback, linklocal, uniquelocal',
+  raffle: raffleConfig = {},
+}) {
   const app = express();
   // Luotetaan oletuksena vain yksityisverkon välityspalvelimiin (esim. pilvipalvelun kuormantasaaja),
   // jotta X-Forwarded-For-otsaketta ei voi väärentää internetistä.
@@ -17,7 +27,18 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
   app.disable('x-powered-by');
   app.use(express.json({ limit: '32kb' }));
 
-  const secret = sessionSecret || crypto.randomBytes(32).toString('hex');
+  // Ilman SESSION_SECRETia avain luodaan kerran ja tallennetaan tietokantaan,
+  // jotta kirjautuminen säilyy palvelimen uudelleenkäynnistyksen yli.
+  const secret = sessionSecret || db.secret('session');
+  const raffleSecret = db.secret('raffle');
+  const raffleOpts = {
+    organizer: raffleConfig.organizer || 'Kipinä Basket ry',
+    contact: raffleConfig.contact || '',
+    policyUrl: raffleConfig.policyUrl || '',
+    retentionDays: Number(raffleConfig.retentionDays) || 60,
+  };
+  // Arvontaan voi osallistua, kun se on päällä eikä voittajaa ole vielä arvottu.
+  const raffleOpen = (event) => event.raffle_enabled && !event.raffle_drawn_at;
   const sign = (v) => crypto.createHmac('sha256', secret).update(v).digest('base64url');
   const sha = (s) => crypto.createHash('sha256').update(String(s)).digest();
 
@@ -69,6 +90,7 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
     res.json({
       event: publicEvent(event),
       questions: QUESTIONS,
+      raffle: raffleOpen(event) ? { prize: event.raffle_prize, ...raffle.rules(event, raffleOpts) } : null,
       alreadyAnswered: Boolean(parseCookies(req)[answeredCookie(event)]),
     });
   });
@@ -87,6 +109,27 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
     if (error) return res.status(400).json({ error });
     db.addResponse(event.id, answers);
     res.cookie(answeredCookie(event), '1', { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
+    // Kertakäyttöinen tunniste arvontaan. Sitä ei tallenneta vastauksen yhteyteen.
+    const raffleToken = raffleOpen(event) ? raffle.createToken(raffleSecret, event.code) : undefined;
+    res.status(201).json({ ok: true, raffleToken });
+  });
+
+  app.post('/api/public/events/:code/raffle', limiter, (req, res) => {
+    const event = db.getEventByCode(req.params.code);
+    if (!event) return res.status(404).json({ error: 'Kyselyä ei löytynyt.' });
+    if (!event.raffle_enabled) return res.status(403).json({ error: 'Tässä ottelussa ei ole arvontaa.' });
+    if (event.raffle_drawn_at) return res.status(403).json({ error: 'Arvonta on jo suoritettu. Kiitos osallistumisesta!' });
+    const token = raffle.verifyToken(raffleSecret, event.code, req.body?.token);
+    if (!token) return res.status(400).json({ error: 'Arvontaan osallistutaan vastaamalla ensin kyselyyn.' });
+    if (token.expired) return res.status(410).json({ error: 'Osallistumisaika on päättynyt.' });
+    const { entry, error } = raffle.validateEntry(req.body);
+    if (error) return res.status(400).json({ error });
+    const result = db.addRaffleEntry(event.id, { ...entry, nonce: token.nonce });
+    if (result.duplicate) {
+      return res.status(409).json({
+        error: result.duplicate === 'token' ? 'Olet jo mukana arvonnassa.' : 'Näillä yhteystiedoilla on jo osallistuttu tähän arvontaan.',
+      });
+    }
     res.status(201).json({ ok: true });
   });
 
@@ -114,12 +157,19 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
     });
     const total = computeStats(all);
     const { comments, ...summary } = total; // kommentit näytetään vain ottelukohtaisesti
-    res.json({ events: rows, total: summary, insights: insights(total), questions: QUESTIONS });
+    const incentive = incentiveInsight(rows);
+    res.json({
+      events: rows,
+      total: summary,
+      insights: [...(incentive ? [incentive] : []), ...insights(total)],
+      questions: QUESTIONS,
+    });
   });
 
   app.post('/api/events', (req, res) => {
     const { fields, error } = validateEvent(req.body, true);
     if (error) return res.status(400).json({ error });
+    if (fields.raffle_enabled && !fields.raffle_prize) return res.status(400).json({ error: 'Kerro arvonnan palkinto.' });
     const event = db.createEvent(fields);
     res.status(201).json({ event: { ...event, url: surveyUrl(req, event) } });
   });
@@ -141,12 +191,23 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
       stats,
       baseline: { overall: baseline.overall.avg, nps: baseline.nps.score, count: baseline.count },
       insights: insights(stats, baseline),
+      raffle: {
+        enabled: event.raffle_enabled,
+        prize: event.raffle_prize,
+        drawnAt: event.raffle_drawn_at,
+        entryCount: db.raffleEntryCount(event.id),
+        winners: db.raffleWinners(event.id),
+        retentionDays: raffleOpts.retentionDays,
+        contactMissing: !raffleOpts.contact,
+      },
     });
   });
 
   app.patch('/api/events/:id', (req, res) => {
     const { fields, error } = validateEvent(req.body, false);
     if (error) return res.status(400).json({ error });
+    const merged = { ...req.event, ...fields };
+    if (merged.raffle_enabled && !merged.raffle_prize) return res.status(400).json({ error: 'Kerro arvonnan palkinto.' });
     const event = db.updateEvent(req.event.id, fields);
     res.json({ event: { ...event, url: surveyUrl(req, event) } });
   });
@@ -155,6 +216,29 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
     db.deleteEvent(req.event.id);
     res.json({ ok: true });
   });
+
+  // --- Hallinta: arvonta ---------------------------------------------------
+
+  app.get('/api/events/:id/raffle/entries', (req, res) => {
+    res.json({ entries: db.raffleEntries(req.event.id) });
+  });
+
+  app.post('/api/events/:id/raffle/draw', (req, res) => {
+    const event = req.event;
+    if (!event.raffle_enabled) return res.status(400).json({ error: 'Arvonta ei ole käytössä tässä ottelussa.' });
+    if (event.is_open) {
+      return res.status(409).json({ error: 'Sulje kysely ennen arvontaa, jotta kaikki osallistujat ovat mukana.' });
+    }
+    const winner = db.drawWinner(event.id);
+    if (!winner) return res.status(409).json({ error: 'Arvottavia osallistujia ei ole.' });
+    res.json({ winner });
+  });
+
+  app.delete('/api/events/:id/raffle/entries', (req, res) => {
+    res.json({ deleted: db.deleteRaffleEntries(req.event.id) });
+  });
+
+  // --- Hallinta: QR ja vienti ----------------------------------------------
 
   app.get('/api/events/:id/qr.:format(png|svg)', async (req, res, next) => {
     try {
@@ -177,7 +261,7 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
     const rows = db.responsesFor(event.id);
     const header = ['Aika', ...QUESTIONS.map((q) => q.label)];
     const lines = [header, ...rows.map((r) => [r.created_at, ...QUESTIONS.map((q) => csvValue(q, r.answers[q.id]))])];
-    const csv = '﻿' + lines.map((l) => l.map(csvCell).join(';')).join('\r\n') + '\r\n';
+    const csv = '\ufeff' + lines.map((l) => l.map(csvCell).join(';')).join('\r\n') + '\r\n';
     res.attachment(`kipina-palaute-${slug(event.opponent)}-${event.date.slice(0, 10)}.csv`);
     res.type('text/csv; charset=utf-8').send(csv);
   });
@@ -185,6 +269,11 @@ function createApp({ db, adminPassword, sessionSecret, publicUrl, trustProxy = '
   // --- Sivut --------------------------------------------------------------
 
   app.get('/', (req, res) => res.redirect('/admin/'));
+  // Seuran logo: ensimmäinen löytyvä tiedosto public/brand-kansiosta, muuten väliaikainen kuvake.
+  app.get('/brand/logo', (req, res) => {
+    const file = LOGO_FILES.map((f) => path.join(PUBLIC_DIR, 'brand', f)).find((f) => fs.existsSync(f));
+    res.set('Cache-Control', 'public, max-age=300').sendFile(file);
+  });
   app.get('/k/:code', (req, res) => res.sendFile(path.join(PUBLIC_DIR, 'survey.html')));
   app.use(express.static(PUBLIC_DIR, { extensions: ['html'] }));
 
@@ -229,6 +318,8 @@ function validateEvent(body, creating) {
     }
   }
   if (body.is_open !== undefined) fields.is_open = Boolean(body.is_open);
+  if (body.raffle_enabled !== undefined) fields.raffle_enabled = Boolean(body.raffle_enabled);
+  str('raffle_prize', 120);
 
   if (creating || 'opponent' in fields) {
     if (!fields.opponent) return { error: 'Anna vastustajan nimi.' };
@@ -241,6 +332,8 @@ function validateEvent(body, creating) {
     fields.series ??= '';
     fields.notes ??= '';
     fields.attendance ??= null;
+    fields.raffle_enabled ??= false;
+    fields.raffle_prize ??= '';
   }
   return { fields };
 }
@@ -262,7 +355,7 @@ function slug(s) {
   return String(s)
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '') || 'ottelu';
 }

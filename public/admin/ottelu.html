@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Ottelun dashboard – Kipinän Basket</title>
+  <title>Ottelun dashboard – Kipinä Basket</title>
+  <link rel="icon" href="/brand/logo">
   <link rel="stylesheet" href="/styles.css">
   <script src="/admin/admin.js"></script>
 </head>
@@ -88,6 +89,8 @@ function render() {
       </div>
     </section>
 
+    ${raffleCard(e, state.raffle, s)}
+
     <div class="tiles">
       <div class="tile"><div class="label">Vastauksia</div><div class="value">${s.count}</div>
         <div class="sub">${s.responseRate != null ? `${s.responseRate} % katsojista (${e.attendance})` : 'lisää katsojamäärä alla'}</div></div>
@@ -162,6 +165,9 @@ function render() {
         <label class="field">Halli<input name="venue" value="${esc(e.venue)}" maxlength="100"></label>
         <label class="field">Sarja<input name="series" value="${esc(e.series)}" maxlength="60"></label>
         <label class="field">Katsojamäärä<input name="attendance" type="number" min="0" value="${e.attendance ?? ''}"></label>
+        <label class="check" style="align-self:end;padding-bottom:.6rem"><input type="checkbox" name="raffle_enabled" ${e.raffle_enabled ? 'checked' : ''}>
+          <span><b>Arvonta vastaajien kesken</b></span></label>
+        <label class="field">Arvonnan palkinto<input name="raffle_prize" maxlength="120" value="${esc(e.raffle_prize || 'Pelaajan pelipaita')}"></label>
         <label class="field" style="grid-column:1/-1">Muistiinpanot<textarea name="notes" maxlength="2000">${esc(e.notes)}</textarea></label>
         <div class="row" style="grid-column:1/-1">
           <button class="btn primary" type="submit">Tallenna</button>
@@ -177,6 +183,7 @@ function render() {
   $('#refresh').onclick = load;
   $('#copy').onclick = async () => { await navigator.clipboard.writeText(e.url); $('#copy').textContent = 'Kopioitu!'; };
   $('#toggle').onclick = async () => { await K.api(`/api/events/${e.id}`, { method: 'PATCH', body: { is_open: !e.is_open } }); load(); };
+  bindRaffle(e, state.raffle);
   $('#delete').onclick = async () => {
     if (!confirm(`Poistetaanko ottelu ja kaikki sen ${s.count} vastausta pysyvästi?`)) return;
     await K.api(`/api/events/${e.id}`, { method: 'DELETE' });
@@ -190,6 +197,7 @@ function render() {
       await K.api(`/api/events/${e.id}`, { method: 'PATCH', body: {
         opponent: f.opponent.value, date: f.date.value, venue: f.venue.value, series: f.series.value,
         attendance: f.attendance.value, notes: f.notes.value,
+        raffle_enabled: f.raffle_enabled.checked, raffle_prize: f.raffle_prize.value,
       } });
       await load();
       $('#saved').hidden = false;
@@ -198,6 +206,77 @@ function render() {
       $('#edit-err').hidden = false;
     }
   };
+}
+
+function raffleCard(e, rf, s) {
+  if (!rf.enabled && !rf.entryCount && !rf.drawnAt) {
+    return `<section class="card"><h2>Arvonta</h2><p class="desc" style="margin:0">Tässä ottelussa ei ole arvontaa.
+      Arvonnan voi ottaa käyttöön ottelun tiedoista sivun alaosassa. Se kannustaa katsojia vastaamaan.</p></section>`;
+  }
+  const share = s.count ? Math.round((rf.entryCount / s.count) * 100) : 0;
+  const latest = rf.winners[rf.winners.length - 1];
+  const contact = (w) => [
+    w.email && `<a href="mailto:${esc(w.email)}">${esc(w.email)}</a>`,
+    w.phone && `<a href="tel:${esc(w.phone)}">${esc(w.phone)}</a>`,
+  ].filter(Boolean).join(' · ');
+  const winners = rf.winners.length ? `<ul class="winners">${[...rf.winners].reverse().map((w) => `
+    <li class="${w === latest ? '' : 'prev'}">
+      <div class="small muted">${w.rank === 1 ? 'Voittaja' : `Uusi arvonta (${w.rank}.)`} · arvottu ${fmtDate(w.drawn_at)}</div>
+      <div class="who">${esc(w.name)}</div><div>${contact(w)}</div>
+    </li>`).join('')}</ul>` : '';
+  const remaining = rf.entryCount - rf.winners.length;
+  const canDraw = rf.enabled && !e.is_open && remaining > 0;
+  let status;
+  if (rf.drawnAt && !rf.entryCount) status = `Arvonta suoritettu ${fmtDate(rf.drawnAt)}. Osallistujatiedot on poistettu.`;
+  else status = `<b>${rf.entryCount}</b> osallistujaa${s.count ? ` (${share} % vastaajista)` : ''}`;
+  return `<section class="card">
+    <div class="page-head" style="align-items:flex-start">
+      <div><h2>Arvonta</h2><p class="desc" style="margin:0">Palkinto: <b>${esc(rf.prize || '–')}</b>${rf.enabled ? '' : ' · arvonta pois päältä'}</p></div>
+      <div class="tnum" style="font-size:1.05rem">${status}</div>
+    </div>
+    <div style="margin-top:1rem">
+      ${winners}
+      ${rf.enabled && e.is_open && !rf.drawnAt ? `<p class="notice">Voittaja arvotaan, kun kysely on suljettu, jotta kaikki osallistujat ovat mukana. Sulje kysely yläreunan painikkeesta ottelun jälkeen.</p>` : ''}
+      ${rf.winners.length ? `<p class="small muted">Arvo uusi voittaja vain, jos voittajaa ei tavoiteta 14 päivän kuluessa (arvonnan säännöt).</p>` : ''}
+      ${rf.enabled && rf.contactMissing ? `<p class="notice">Seuran yhteystieto puuttuu arvonnan tietosuojatekstistä. Aseta palvelimelle PRIVACY_CONTACT-asetus.</p>` : ''}
+      <div class="row">
+        ${rf.enabled && rf.entryCount ? `<button class="btn ${rf.winners.length ? '' : 'primary'}" id="draw" ${canDraw ? '' : 'disabled'}>${rf.winners.length ? 'Arvo uusi voittaja' : 'Arvo voittaja'}</button>` : ''}
+        ${rf.entryCount ? `<button class="btn danger" id="purge">Poista osallistujatiedot</button>` : ''}
+      </div>
+      ${rf.entryCount ? `<p class="small muted" style="margin-bottom:0">Yhteystiedot poistuvat automaattisesti ${rf.retentionDays} päivän kuluttua osallistumisesta.</p>
+      <details id="entries" style="margin-top:.75rem"><summary class="small" style="cursor:pointer;font-weight:600">Näytä osallistujat (${rf.entryCount})</summary>
+        <div class="table-wrap" id="entries-body"><p class="muted small">Ladataan…</p></div></details>` : ''}
+    </div>
+  </section>`;
+}
+
+function bindRaffle(e, rf) {
+  $('#draw')?.addEventListener('click', async () => {
+    const again = rf.winners.length > 0;
+    const msg = again
+      ? 'Arvotaanko uusi voittaja? Tee näin vain, jos edellistä voittajaa ei tavoiteta.'
+      : `Arvotaanko voittaja ${rf.entryCount} osallistujan kesken?`;
+    if (!confirm(msg)) return;
+    try {
+      await K.api(`/api/events/${e.id}/raffle/draw`, { method: 'POST' });
+      await load();
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  $('#purge')?.addEventListener('click', async () => {
+    if (!confirm('Poistetaanko kaikkien osallistujien nimet ja yhteystiedot pysyvästi? Tee tämä, kun palkinto on luovutettu.')) return;
+    await K.api(`/api/events/${e.id}/raffle/entries`, { method: 'DELETE' });
+    await load();
+  });
+  $('#entries')?.addEventListener('toggle', async (ev) => {
+    if (!ev.target.open || ev.target.dataset.loaded) return;
+    const { entries } = await K.api(`/api/events/${e.id}/raffle/entries`);
+    ev.target.dataset.loaded = '1';
+    $('#entries-body').innerHTML = `<table class="data"><thead><tr><th>Nimi</th><th>Sähköposti</th><th>Puhelin</th><th>Osallistui</th></tr></thead>
+      <tbody>${entries.map((x) => `<tr><td>${esc(x.name)}${x.winner_rank ? ' · <b>arvottu</b>' : ''}</td><td>${esc(x.email || '–')}</td>
+        <td class="nowrap">${esc(x.phone || '–')}</td><td class="nowrap">${fmtDate(x.created_on, false)}</td></tr>`).join('')}</tbody></table>`;
+  });
 }
 
 function returnShare(s) {
@@ -210,7 +289,10 @@ function returnShare(s) {
 if (!id) location.href = '/admin/';
 else load().catch((err) => { $('#content').innerHTML = `<p class="error">${esc(err.message)}</p><p><a href="/admin/">← Kaikki ottelut</a></p>`; });
 // Päivitä luvut automaattisesti minuutin välein ottelun aikana.
-setInterval(() => { if (state?.event.is_open && document.visibilityState === 'visible' && !document.activeElement?.closest('form')) load().catch(() => {}); }, 60000);
+setInterval(() => {
+  const busy = document.activeElement?.closest('form') || document.querySelector('details[open]');
+  if (state?.event.is_open && document.visibilityState === 'visible' && !busy) load().catch(() => {});
+}, 60000);
 </script>
 </body>
 </html>

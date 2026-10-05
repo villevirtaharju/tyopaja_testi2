@@ -4,33 +4,57 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>QR-juliste – Kipinän Basket</title>
+  <title>QR-juliste – Kipinä Basket</title>
+  <link rel="icon" href="/brand/logo">
   <style>
+    /* Juliste tulostetaan aina vaaleana. Seuran värit kuten styles.css:ssä. */
+    @font-face {
+      font-family: 'Archivo';
+      src: url(/fonts/archivo-latin-wdth.woff2) format('woff2');
+      font-weight: 100 900;
+      font-stretch: 62% 125%;
+    }
+    :root {
+      --brand: #111111; --brand-ink: #ffffff; --gold: #d2bb8a;
+      --hero: linear-gradient(120deg, #050303 0%, #1c0907 55%, #3a1511 100%);
+      --display: 'Archivo', system-ui, sans-serif;
+    }
     @page { size: A4; margin: 0; }
     * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
     body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: #e9e7e2; color: #0b0b0b; }
     .bar { max-width: 210mm; margin: 16px auto; display: flex; gap: 8px; padding: 0 16px; }
-    .bar button { font: inherit; font-weight: 600; padding: .6rem 1rem; border-radius: 10px; border: 0; background: #c2410c; color: #fff; cursor: pointer; }
-    .poster { width: 210mm; min-height: 297mm; margin: 0 auto 32px; background: #fff; padding: 22mm 18mm; display: flex; flex-direction: column; align-items: center; text-align: center; }
-    .brand { font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #c2410c; font-size: 16pt; }
-    h1 { font-size: 40pt; line-height: 1.05; margin: 10mm 0 4mm; }
+    .bar button { font: inherit; font-weight: 600; padding: .6rem 1rem; border-radius: 10px; border: 0; background: var(--brand); color: var(--brand-ink); cursor: pointer; }
+    .poster { width: 210mm; height: 297mm; margin: 0 auto 32px; background: #fff; padding: 16mm 18mm 12mm; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden; }
+    .brand { display: flex; align-items: center; gap: 5mm; font-family: var(--display); font-stretch: 125%; font-weight: 900; text-transform: uppercase; font-size: 22pt; }
+    .brand .w2 { color: var(--gold); }
+    .brand img { width: 20mm; height: 20mm; object-fit: contain; }
+    h1 { font-family: var(--display); font-stretch: 125%; font-weight: 900; text-transform: uppercase; font-size: 30pt; line-height: 1.05; margin: 8mm 0 3mm; }
     .sub { font-size: 16pt; color: #333; margin: 0; }
-    .match { margin-top: 6mm; font-size: 14pt; color: #52514e; }
-    .qr { margin: 12mm 0 8mm; width: 120mm; height: 120mm; border: 3mm solid #c2410c; border-radius: 8mm; padding: 4mm; }
+    .match { margin-top: 3mm; font-size: 13pt; color: #52514e; }
+    .prize { margin-top: 7mm; display: flex; align-items: center; gap: 5mm; background: var(--hero); color: #fff; border: 1mm solid var(--gold); border-radius: 6mm; padding: 4mm 8mm; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .prize .gift { font-size: 28pt; line-height: 1; }
+    .prize .lead { font-size: 13pt; opacity: .85; }
+    .prize .what { font-family: var(--display); font-stretch: 112%; font-size: 20pt; font-weight: 850; color: var(--gold); }
+    .qr { margin: 7mm 0 5mm; width: 100mm; height: 100mm; border: 3mm solid var(--brand); border-radius: 8mm; padding: 3mm; }
     .qr img { width: 100%; height: 100%; display: block; }
     .steps { font-size: 14pt; color: #333; }
     .url { margin-top: auto; font-family: ui-monospace, monospace; font-size: 11pt; color: #52514e; }
     @media print { body { background: #fff; } .bar { display: none; } .poster { margin: 0; } }
-    @media (max-width: 220mm) { .poster { width: 100%; min-height: auto; } .qr { width: min(120mm, 80vw); height: min(120mm, 80vw); } }
+    @media screen and (max-width: 220mm) { .poster { width: 100%; height: auto; } .qr { width: min(100mm, 80vw); height: min(100mm, 80vw); } }
   </style>
 </head>
 <body>
   <div class="bar"><button onclick="print()">Tulosta</button></div>
   <div class="poster">
-    <div class="brand">✦ Kipinän Basket</div>
+    <div class="brand"><img src="/brand/logo" alt=""><span><span class="w1">Kipinä</span> <span class="w2">Basket</span></span></div>
     <h1>Miten onnistuimme tänään?</h1>
     <p class="sub">Kerro mielipiteesi ottelusta – vie alle minuutin.</p>
     <div class="match" id="match"></div>
+    <div class="prize" id="prize" hidden>
+      <span class="gift" aria-hidden="true">🎁</span>
+      <span><span class="lead">Vastanneiden kesken arvotaan</span><br><span class="what" id="prize-name"></span></span>
+    </div>
     <div class="qr"><img id="qr" alt="QR-koodi palautekyselyyn"></div>
     <div class="steps">Avaa puhelimen kamera ja osoita QR-koodia.<br>Kiitos, että teet Kipinän otteluista entistä parempia!</div>
     <div class="url" id="url"></div>
@@ -40,11 +64,15 @@
   const id = new URLSearchParams(location.search).get('id');
   const r = await fetch(`/api/events/${encodeURIComponent(id)}`);
   if (r.status === 401) return (location.href = `/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`);
-  const { event } = await r.json();
+  const { event, raffle } = await r.json();
   document.getElementById('qr').src = `/api/events/${event.id}/qr.svg`;
   const d = new Date(event.date.length === 10 ? event.date + 'T12:00' : event.date);
   document.getElementById('match').textContent = `Kipinä – ${event.opponent} · ${d.toLocaleDateString('fi-FI')}`;
   document.getElementById('url').textContent = event.url;
+  if (raffle.enabled && !raffle.drawnAt) {
+    document.getElementById('prize-name').textContent = raffle.prize;
+    document.getElementById('prize').hidden = false;
+  }
 })();
 </script>
 </body>

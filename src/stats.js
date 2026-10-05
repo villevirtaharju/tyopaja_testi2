@@ -134,6 +134,26 @@ function insights(stats, baseline = null) {
   return out;
 }
 
+// Vertaa otteluita, joissa oli arvonta, niihin joissa ei ollut. Kertoo, kannattaako kannustin.
+// `events` = /api/events-rivit ({ raffle_enabled, stats: { count, responseRate } }).
+function incentiveInsight(events) {
+  const answered = events.filter((e) => e.stats.count > 0);
+  const withRaffle = answered.filter((e) => e.raffle_enabled);
+  const without = answered.filter((e) => !e.raffle_enabled);
+  if (!withRaffle.length || !without.length) return null;
+  const meanCount = (xs) => Math.round(avg(xs.map((e) => e.stats.count)));
+  const meanRate = (xs) => (xs.every((e) => e.stats.responseRate != null) ? Math.round(avg(xs.map((e) => e.stats.responseRate))) : null);
+  const [ca, cb, ra, rb] = [meanCount(withRaffle), meanCount(without), meanRate(withRaffle), meanRate(without)];
+  const useRate = ra != null && rb != null;
+  const better = useRate ? ra > rb : ca > cb;
+  return {
+    tone: better ? 'good' : 'neutral',
+    text:
+      `Arvonnan kanssa vastauksia tuli keskimäärin ${ca} / ottelu${useRate ? ` (vastaus-% ${ra})` : ''}, ` +
+      `ilman arvontaa ${cb} / ottelu${useRate ? ` (vastaus-% ${rb})` : ''}.`,
+  };
+}
+
 const fmt = (n) => String(n).replace('.', ',');
 
-module.exports = { computeStats, insights, npsOf };
+module.exports = { computeStats, insights, incentiveInsight, npsOf };

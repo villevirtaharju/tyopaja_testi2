@@ -4,12 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
-  <title>Kipinän ottelupalaute</title>
+  <title>Ottelupalaute – Kipinä Basket</title>
+  <link rel="icon" href="/brand/logo">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
   <div class="survey">
-    <header><span class="brandmark"><span class="spark" aria-hidden="true">✦</span> Kipinän Basket</span></header>
+    <header><span class="brandmark"><img class="logo" src="/brand/logo" alt=""><span class="wordmark"><span class="w1">Kipinä</span> <span class="w2">Basket</span></span></span></header>
     <div id="loading" class="muted">Ladataan kyselyä…</div>
     <div id="fatal" class="card" hidden></div>
 
@@ -18,19 +19,24 @@
         <div class="small muted">Ottelupalaute · vie noin minuutin</div>
         <h1 id="match-title"></h1>
         <div class="small muted" id="match-meta"></div>
+        <div id="raffle-banner" class="raffle-banner" hidden></div>
       </div>
       <div id="questions"></div>
       <div class="submit-bar">
         <p id="form-error" class="error" role="alert" hidden></p>
         <button class="btn primary" type="submit">Lähetä palaute</button>
-        <p class="small muted">Vastaukset kerätään nimettömästi ja niitä käytetään otteluiden kehittämiseen.</p>
+        <p class="small muted">Vastaukset kerätään nimettömästi ja niitä käytetään otteluiden kehittämiseen.<span id="raffle-note" hidden>
+          Arvontaan osallistutaan palautteen lähettämisen jälkeen, eikä yhteystietojasi yhdistetä vastauksiisi.</span></p>
       </div>
     </form>
 
-    <div id="thanks" class="thanks" hidden>
-      <div class="big" aria-hidden="true">🏀</div>
-      <h1>Kiitos palautteestasi!</h1>
-      <p class="muted">Teet seuraavista Kipinän otteluista entistä parempia. Nähdään taas katsomossa!</p>
+    <div id="thanks" hidden>
+      <div class="thanks">
+        <img class="thanks-logo" src="/brand/logo" alt="">
+        <h1>Kiitos palautteestasi!</h1>
+        <p class="muted">Teet seuraavista Kipinän otteluista entistä parempia. Nähdään taas katsomossa!</p>
+      </div>
+      <section id="raffle" class="card raffle-card" aria-live="polite" hidden></section>
     </div>
   </div>
 
@@ -39,8 +45,20 @@
   const code = location.pathname.split('/').filter(Boolean).pop();
   const $ = (s) => document.querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const storeKey = `kipina-vastattu-${code}`;
-  const answeredLocally = () => { try { return localStorage.getItem(storeKey) === '1'; } catch { return false; } };
+  const api = `/api/public/events/${encodeURIComponent(code)}`;
+
+  // Selaimen muisti voi olla estetty (yksityinen selaus), joten kaikki kutsut try/catchiin.
+  const storage = (get) => ({
+    get: (k) => { try { return get().getItem(k); } catch { return null; } },
+    set: (k, v) => { try { get().setItem(k, v); } catch {} },
+    del: (k) => { try { get().removeItem(k); } catch {} },
+  });
+  const local = storage(() => localStorage);
+  const answeredKey = `kipina-vastattu-${code}`;
+  const tokenKey = `kipina-arvonta-${code}`;     // kertakäyttöinen arvontatunniste
+  const enteredKey = `kipina-arvonnassa-${code}`;
+
+  let raffle = null;
 
   function fmtDate(d) {
     const dt = new Date(d.length === 10 ? d + 'T12:00' : d);
@@ -121,20 +139,111 @@
     $('#form').hidden = true;
     $('#loading').hidden = true;
     $('#thanks').hidden = false;
+    if (raffle) {
+      const token = local.get(tokenKey);
+      if (local.get(enteredKey)) raffleDone('Olet mukana arvonnassa', 'Ilmoitamme voittajalle henkilökohtaisesti. Onnea arvontaan!');
+      else if (token) showRaffle(token);
+    }
     window.scrollTo(0, 0);
   }
 
-  fetch(`/api/public/events/${encodeURIComponent(code)}`)
+  // --- Arvonta ---------------------------------------------------------------
+
+  function raffleDone(title, text) {
+    const box = $('#raffle');
+    box.innerHTML = `<h2>${esc(title)}</h2>${text ? `<p class="muted" style="margin-bottom:0">${esc(text)}</p>` : ''}`;
+    box.hidden = false;
+  }
+
+  function showRaffle(token) {
+    const box = $('#raffle');
+    box.innerHTML = `
+      <h2><span aria-hidden="true">🎁</span> Osallistu arvontaan</h2>
+      <p style="margin:.25rem 0">Palkinto: <b>${esc(raffle.prize)}</b></p>
+      <p class="small muted" style="margin:0">Palautteesi on jo tallennettu nimettömänä. Yhteystietojasi ei yhdistetä vastauksiisi.</p>
+      <form class="raffle-form" novalidate>
+        <label class="field">Nimi<input name="name" autocomplete="name" maxlength="100" required></label>
+        <label class="field">Sähköposti<input name="email" type="email" autocomplete="email" inputmode="email" maxlength="254"></label>
+        <label class="field">Puhelinnumero<input name="phone" type="tel" autocomplete="tel" maxlength="30"></label>
+        <p class="small muted" style="margin:-.3rem 0 0">Anna sähköposti tai puhelinnumero, jotta voimme ilmoittaa voitosta.</p>
+        <label class="check"><input type="checkbox" name="consent"><span>Hyväksyn arvonnan säännöt ja yhteystietojeni käsittelyn arvontaa varten.</span></label>
+        <details class="rules"><summary>Arvonnan säännöt ja tietosuoja</summary>
+          <ol>${raffle.rules.map((r) => `<li>${esc(r)}</li>`).join('')}</ol>
+          <p>${esc(raffle.privacy)}${raffle.policyUrl ? ` <a href="${esc(raffle.policyUrl)}" target="_blank" rel="noopener">Tietosuojaseloste</a>` : ''}</p>
+        </details>
+        <p class="error" role="alert" hidden></p>
+        <button class="btn primary" type="submit">Osallistu arvontaan</button>
+        <button class="btn ghost" type="button" data-skip>Ei kiitos</button>
+      </form>`;
+    box.hidden = false;
+
+    const form = box.querySelector('form');
+    const err = form.querySelector('.error');
+    const field = (n) => form.elements.namedItem(n);
+    form.querySelector('[data-skip]').onclick = () => { local.del(tokenKey); box.hidden = true; };
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      err.hidden = true;
+      const body = {
+        token,
+        name: field('name').value,
+        email: field('email').value,
+        phone: field('phone').value,
+        consent: field('consent').checked,
+      };
+      const problem = body.name.trim().length < 2 ? 'Kirjoita nimesi.'
+        : !body.email.trim() && !body.phone.trim() ? 'Anna sähköposti tai puhelinnumero, jotta voimme ilmoittaa voitosta.'
+        : !body.consent ? 'Hyväksy arvonnan säännöt osallistuaksesi.' : '';
+      if (problem) {
+        err.textContent = problem;
+        err.hidden = false;
+        return;
+      }
+      const btn = form.querySelector('button[type=submit]');
+      btn.disabled = true;
+      try {
+        const r = await fetch(`${api}/raffle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 201 || r.status === 409) {
+          local.del(tokenKey);
+          local.set(enteredKey, '1');
+          return r.status === 201
+            ? raffleDone('Olet mukana arvonnassa!', 'Ilmoitamme voittajalle henkilökohtaisesti. Onnea arvontaan!')
+            : raffleDone(data.error || 'Olet jo mukana arvonnassa.', '');
+        }
+        if (r.status === 403 || r.status === 410) {
+          local.del(tokenKey);
+          return raffleDone(data.error || 'Arvontaan ei voi enää osallistua.', '');
+        }
+        throw new Error(data.error || 'Osallistuminen epäonnistui.');
+      } catch (ex) {
+        err.textContent = ex.message === 'Failed to fetch' ? 'Yhteys katkesi. Yritä uudelleen.' : ex.message;
+        err.hidden = false;
+        btn.disabled = false;
+      }
+    });
+  }
+
+  // --- Käynnistys ------------------------------------------------------------
+
+  fetch(api)
     .then(async (r) => ({ ok: r.ok, data: await r.json() }))
     .then(({ ok, data }) => {
       if (!ok) return fatal(`<h2>Kyselyä ei löytynyt</h2><p class="muted">Tarkista QR-koodi tai osoite.</p>`);
       const { event, questions, alreadyAnswered } = data;
-      if (alreadyAnswered || answeredLocally()) return showThanks();
+      raffle = data.raffle;
+      if (alreadyAnswered || local.get(answeredKey)) return showThanks();
       if (!event.is_open) return fatal(`<h2>Kysely on suljettu</h2><p class="muted">Kiitos mielenkiinnosta! Tämän ottelun palautekysely ei ole enää auki.</p>`);
 
       $('#match-title').textContent = `Kipinä – ${event.opponent}`;
       $('#match-meta').textContent = [fmtDate(event.date), event.venue, event.series].filter(Boolean).join(' · ');
       document.title = `Palaute: Kipinä – ${event.opponent}`;
+      if (raffle) {
+        $('#raffle-banner').innerHTML = `<span class="gift" aria-hidden="true">🎁</span>
+          <span><b>Vastaa ja osallistu arvontaan!</b><br>Palkinto: ${esc(raffle.prize)}</span>`;
+        $('#raffle-banner').hidden = false;
+        $('#raffle-note').hidden = false;
+      }
       render(questions);
       $('#loading').hidden = true;
       $('#form').hidden = false;
@@ -155,14 +264,15 @@
         btn.disabled = true;
         btn.textContent = 'Lähetetään…';
         try {
-          const r = await fetch(`/api/public/events/${encodeURIComponent(code)}/responses`, {
+          const r = await fetch(`${api}/responses`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers }),
           });
           const data = await r.json().catch(() => ({}));
           if (r.ok || r.status === 409) {
-            try { localStorage.setItem(storeKey, '1'); } catch {}
+            local.set(answeredKey, '1');
+            if (data.raffleToken) local.set(tokenKey, data.raffleToken);
             return showThanks();
           }
           throw new Error(data.error || 'Lähetys epäonnistui.');
