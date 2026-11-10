@@ -1,0 +1,20 @@
+# Render Blueprint: julkinen testiversio, jonka QR-koodin voi jakaa kenelle tahansa.
+# Ohjeet: README, kohta "Julkinen testiversio".
+services:
+  - type: web
+    name: kipina-palaute
+    runtime: docker
+    plan: starter            # pysyvä levy vaatii maksullisen palvelutason
+    region: frankfurt
+    healthCheckPath: /admin/login
+    disk:
+      name: data
+      mountPath: /app/data   # SQLite-tietokanta säilyy uudelleenkäynnistysten ja päivitysten yli
+      sizeGB: 1
+    envVars:
+      - key: ADMIN_PASSWORD
+        sync: false          # Render kysyy hallinnan salasanan julkaisun yhteydessä
+      - key: TEST_MODE
+        value: "true"        # sivuilla näkyy "Testiversio", arvontaa ei oikeasti järjestetä
+      - key: RAFFLE_RETENTION_DAYS
+        value: "14"

@@ -32,6 +32,8 @@
     .match { margin-top: 3mm; font-size: 13pt; color: #52514e; }
     .prize { margin-top: 7mm; display: flex; align-items: center; gap: 5mm; background: var(--hero); color: #fff; border: 1mm solid var(--gold); border-radius: 6mm; padding: 4mm 8mm; text-align: left; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .prize .gift { font-size: 28pt; line-height: 1; }
+    .test-ribbon { align-self: stretch; margin: -16mm -18mm 8mm; padding: 3mm 6mm; background: #fab219; color: #000; font-weight: 800; font-size: 13pt; text-transform: uppercase; letter-spacing: .04em; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .prize .test-note { font-size: 11pt; opacity: .85; }
     .prize .lead { font-size: 13pt; opacity: .85; }
     .prize .what { font-family: var(--display); font-stretch: 112%; font-size: 20pt; font-weight: 850; color: var(--gold); }
     .qr { margin: 7mm 0 5mm; width: 100mm; height: 100mm; border: 3mm solid var(--brand); border-radius: 8mm; padding: 3mm; }
@@ -45,13 +47,14 @@
 <body>
   <div class="bar"><button onclick="print()">Tulosta</button></div>
   <div class="poster">
+    <div class="test-ribbon" id="test-ribbon" hidden>Testiversio – ei Kipinä Basketin virallinen kysely</div>
     <div class="brand"><img src="/brand/logo" alt="Kipinä Basket"></div>
     <h1>Miten onnistuimme tänään?</h1>
     <p class="sub">Kerro mielipiteesi ottelusta – vie alle minuutin.</p>
     <div class="match" id="match"></div>
     <div class="prize" id="prize" hidden>
       <span class="gift" aria-hidden="true">🎁</span>
-      <span><span class="lead">Vastanneiden kesken arvotaan</span><br><span class="what" id="prize-name"></span></span>
+      <span><span class="lead">Vastanneiden kesken arvotaan</span><br><span class="what" id="prize-name"></span><span class="test-note" id="prize-test" hidden><br>Testiversio: arvontaa ei oikeasti järjestetä</span></span>
     </div>
     <div class="qr"><img id="qr" alt="QR-koodi palautekyselyyn"></div>
     <div class="steps">Avaa puhelimen kamera ja osoita QR-koodia.<br>Kiitos, että teet Kipinän otteluista entistä parempia!</div>
@@ -63,6 +66,9 @@
   const r = await fetch(`/api/events/${encodeURIComponent(id)}`);
   if (r.status === 401) return (location.href = `/admin/login?next=${encodeURIComponent(location.pathname + location.search)}`);
   const { event, raffle } = await r.json();
+  const { testMode } = await fetch('/api/config').then((x) => x.json()).catch(() => ({}));
+  document.getElementById('test-ribbon').hidden = !testMode;
+  document.getElementById('prize-test').hidden = !testMode;
   document.getElementById('qr').src = `/api/events/${event.id}/qr.svg`;
   const d = new Date(event.date.length === 10 ? event.date + 'T12:00' : event.date);
   document.getElementById('match').textContent = `Kipinä – ${event.opponent} · ${d.toLocaleDateString('fi-FI')}`;

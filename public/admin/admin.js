@@ -38,6 +38,9 @@ const K = (() => {
         <button class="btn sm" id="logout">Kirjaudu ulos</button>
       </nav></div>`;
     document.body.prepend(el);
+    fetch('/api/config').then((r) => r.json()).then((c) => {
+      if (c.testMode) el.querySelector('.brandmark').insertAdjacentHTML('beforeend', '<span class="test-badge">Testiversio</span>');
+    }).catch(() => {});
     el.querySelector('#logout').onclick = async () => { await api('/api/logout', { method: 'POST' }); location.href = '/admin/login'; };
   }
 

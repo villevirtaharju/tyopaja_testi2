@@ -127,6 +127,43 @@ tai luo hallinnassa uusi ottelu.
 Käynnistystiedostojen sijaan voit myös avata päätteen kansiossa ja kirjoittaa `npm install` ja
 `npm run demo`.
 
+## Julkinen testiversio (jaettava QR-koodi)
+
+Kun haluat, että kuka tahansa voi testata kyselyä omalla puhelimellaan, sovellus julkaistaan
+internetiin. Repossa on valmis [Render](https://render.com)-pohja (`render.yaml`), jolla julkaisu
+onnistuu selaimessa muutamalla klikkauksella.
+
+**Julkaisu:**
+1. Luo tili osoitteessa [render.com](https://render.com). Helpointa on valita **Sign up with GitHub**.
+2. Valitse Renderin hallintapaneelissa **New → Blueprint** ja yhdistä repositorio
+   `villevirtaharju/tyopaja_testi2` (anna Renderille pääsy siihen). Valitse haaraksi `main`.
+3. Render lukee asetukset `render.yaml`-tiedostosta ja kysyy **ADMIN_PASSWORD**-arvon. Keksi vahva
+   salasana hallintaan, koska sivu on julkinen.
+4. Paina **Deploy Blueprint**. Render pyytää maksutiedot: pysyvän levyn takia käytössä on Starter-taso
+   (noin 7 $/kk + levy 1 Gt noin 0,25 $/kk, laskutus käytön mukaan).
+5. Julkaisu kestää muutaman minuutin. Palvelun osoite näkyy Renderissä, esimerkiksi
+   `https://kipina-palaute.onrender.com`.
+
+**Käyttö:**
+- Avaa `https://<palvelun-osoite>/admin/` ja kirjaudu valitsemallasi salasanalla. Ensimmäisellä
+  käynnistyksellä mukana on esimerkkidataa ja tyhjä **Testiottelu**.
+- Avaa Testiottelu ja jaa sen QR-koodi (**Lataa PNG**) tai linkki kenelle tahansa, esimerkiksi viestillä
+  tai somessa. Tulostettava juliste löytyy samasta paikasta.
+- Esimerkkiottelut voi poistaa ottelun sivulta (**Poista ottelu**), ja uusia otteluita voi luoda vapaasti.
+- Kun `main`-haaraan yhdistetään muutoksia, Render päivittää sovelluksen automaattisesti, ja tiedot säilyvät.
+- Kun testaus on ohi, poista palvelu Renderistä, niin laskutus loppuu.
+
+**Testitila:** julkinen versio käynnistyy testitilassa (`TEST_MODE=true`). Silloin kyselyssä, hallinnassa
+ja julisteessa lukee selvästi "Testiversio", ja arvonnan kohdalla kerrotaan, ettei arvontaa oikeasti
+järjestetä. Näin testaajat eivät luule kyselyä seuran viralliseksi eivätkä anna oikeita yhteystietojaan.
+Arvontatiedot poistuvat 14 päivän kuluttua. Koska sivulla on seuran logo, kysy seuralta lupa ennen kuin
+jaat linkkiä laajasti. Ota testitila pois päältä vasta, kun sovellus on seuran käytössä ja arvonnan säännöt
+on sovittu (aseta silloin myös `PRIVACY_CONTACT`).
+
+Ilmaiseksi Renderissä voi kokeilla vaihtamalla `render.yaml`:ssa `plan: free` ja poistamalla `disk`-osion.
+Silloin palvelu kuitenkin nukahtaa 15 minuutin käyttämättömyyden jälkeen, ja kaikki vastaukset katoavat
+aina kun se käynnistyy uudelleen.
+
 ## Asennus ja käynnistys
 
 Vaatii Node.js 22.13:n tai uudemman. Tietokantana toimii Noden sisäänrakennettu SQLite, joten erillistä
@@ -148,7 +185,7 @@ vaikutus näkyy heti yleisnäkymässä.
 |---|---|
 | `ADMIN_PASSWORD` | Hallintapaneelin salasana. Ilman tätä käytetään oletusta `kipina`, joka ei sovi tuotantoon. |
 | `SESSION_SECRET` | Valinnainen. Jos tyhjä, satunnainen avain luodaan kerran ja tallennetaan tietokantaan. |
-| `PUBLIC_URL` | Julkinen osoite, johon QR-koodit osoittavat, esim. `https://palaute.kipinabasket.fi`. **Aseta tämä tuotannossa.** |
+| `PUBLIC_URL` | Julkinen osoite, johon QR-koodit osoittavat, esim. `https://palaute.kipinabasket.fi`. **Aseta tämä tuotannossa.** Renderissä käytetään automaattisesti palvelun omaa osoitetta. |
 | `PORT` | Portti (oletus 3000). |
 | `DB_FILE` | SQLite-tiedoston polku (oletus `data/palaute.db`). |
 | `TRUST_PROXY` | Expressin `trust proxy`. Oletus luottaa vain yksityisverkon välityspalvelimiin. |
@@ -156,6 +193,7 @@ vaikutus näkyy heti yleisnäkymässä.
 | `PRIVACY_CONTACT` | Seuran yhteystieto tietosuoja-asioihin, esim. sähköposti. **Aseta ennen arvontoja.** |
 | `PRIVACY_POLICY_URL` | Valinnainen linkki seuran tietosuojaselosteeseen. |
 | `RAFFLE_RETENTION_DAYS` | Montako päivää osallistujien yhteystietoja säilytetään (oletus 60). |
+| `TEST_MODE` | `true` = julkinen testiversio: "Testiversio"-merkinnät, arvonta ei ole todellinen, ja tyhjään tietokantaan luodaan esimerkkidata ja Testiottelu. |
 
 ### Tuotantoon
 
@@ -215,12 +253,14 @@ server.js              käynnistys ja asetukset
 src/app.js             reitit: kysely, hallinta, QR, CSV
 src/questions.js       kysymykset ja vastausten validointi
 src/stats.js           tunnusluvut ja automaattiset havainnot
+src/demo-data.js       esimerkkidata ja Testiottelu (seed, esittelytila, testitila)
 src/raffle.js          arvonnan tunnisteet, yhteystietojen tarkistus ja säännöt
 src/db.js              SQLite-tietokanta
 public/survey.html     katsojan kysely (mobiili)
 public/admin/          dashboardit, kirjautuminen ja tulostettava juliste
 public/brand/          seuran logo
-scripts/seed.js        esimerkkidata
+scripts/seed.js        esimerkkidata komentoriviltä
+render.yaml            julkaisupohja Renderiin (julkinen testiversio)
 scripts/demo.js        esittelytila puhelimella kokeiluun
 Kaynnista-demo-*       esittelytilan käynnistys tuplaklikkaamalla (Windows .bat, Mac .command)
 test/                  testit
