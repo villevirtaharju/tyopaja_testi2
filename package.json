@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node --no-warnings=ExperimentalWarning --env-file-if-exists=.env server.js",
+    "demo": "node --no-warnings=ExperimentalWarning scripts/demo.js",
     "seed": "node --no-warnings=ExperimentalWarning --env-file-if-exists=.env scripts/seed.js",
     "test": "node --no-warnings=ExperimentalWarning --test test/*.test.js"
   },

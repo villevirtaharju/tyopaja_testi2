@@ -93,6 +93,31 @@ yhteystietojen käsittelyyn sovelletaan tietosuoja-asetusta. Tämä ei ole jurid
 - Sulje kysely seuraavana päivänä, arvo voittaja ja ilmoita hänelle. Kerro somessa, että paita on arvottu
   (voittajan nimellä vain hänen luvallaan), niin seuraavaan arvontaan osallistuu entistä useampi.
 
+## Kokeile omalla puhelimella (esittelytila)
+
+Esittelytilassa sovellus pyörii omalla tietokoneellasi, ja puhelin käyttää sitä saman wifin kautta.
+Kyselyn QR-koodin voi skannata suoraan näytöltä puhelimen kameralla, aivan kuten katsoja hallissa.
+Esittelytila sopii myös sovelluksen näyttämiseen seuralle.
+
+1. **Asenna Node.js** osoitteesta [nodejs.org](https://nodejs.org) (LTS-versio, oletusasetuksilla).
+2. **Lataa koodi:** avaa repositorio GitHubissa, paina vihreää **Code**-painiketta ja valitse
+   **Download ZIP**. Pura ZIP-tiedosto.
+3. **Avaa pääte puretussa kansiossa:**
+   - Windows: avaa kansio Resurssienhallinnassa, kirjoita osoiteriville `cmd` ja paina Enter.
+   - Mac: avaa Pääte (Terminal), kirjoita `cd ` (välilyönti perään), vedä kansio ikkunaan ja paina Enter.
+4. **Käynnistä:** kirjoita `npm install` (vain ensimmäisellä kerralla) ja sen jälkeen `npm run demo`.
+5. **Skannaa** näytölle tuleva QR-koodi puhelimella. Puhelimen pitää olla samassa wifissä kuin kone.
+6. **Seuraa vastauksia** koneen selaimessa osoitteessa, jonka esittelytila tulostaa (salasana `kipina`).
+   Valitse **Testiottelu**. Siellä voit myös sulkea kyselyn ja arpoa voittajan.
+
+Esittelytila aloittaa aina puhtaalta pöydältä: mukana on keksittyä esimerkkidataa ja tyhjä Testiottelu,
+jossa on pelipaidan arvonta. Data nollautuu, kun esittelytila käynnistetään uudelleen. Lopetus: Ctrl+C.
+
+Jos puhelin ei saa yhteyttä, salli Node.js tietokoneen palomuurissa (Windows ja Mac kysyvät tätä
+ensimmäisellä kerralla). Tarkista myös, ettei wifi ole vierasverkko, joka estää laitteiden väliset yhteydet.
+Samalla puhelimella voi vastata kuhunkin otteluun kerran. Kokeile uudelleen selaimen yksityisessä tilassa
+tai luo hallinnassa uusi ottelu.
+
 ## Asennus ja käynnistys
 
 Vaatii Node.js 22.13:n tai uudemman. Tietokantana toimii Noden sisäänrakennettu SQLite, joten erillistä
@@ -171,6 +196,7 @@ Ilme noudattaa Kipinä Basketin visuaalista ilmettä (Partnership Deck, kausi 20
 ```bash
 npm test        # API- ja tilastotestit (node:test)
 npm run seed    # esimerkkidata
+npm run demo    # esittelytila puhelimella kokeiluun
 ```
 
 Rakenne:
@@ -185,5 +211,7 @@ src/db.js              SQLite-tietokanta
 public/survey.html     katsojan kysely (mobiili)
 public/admin/          dashboardit, kirjautuminen ja tulostettava juliste
 public/brand/          seuran logo
+scripts/seed.js        esimerkkidata
+scripts/demo.js        esittelytila puhelimella kokeiluun
 test/                  testit
 ```
