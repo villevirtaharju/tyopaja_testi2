@@ -93,6 +93,31 @@ yhteystietojen käsittelyyn sovelletaan tietosuoja-asetusta. Tämä ei ole jurid
 - Sulje kysely seuraavana päivänä, arvo voittaja ja ilmoita hänelle. Kerro somessa, että paita on arvottu
   (voittajan nimellä vain hänen luvallaan), niin seuraavaan arvontaan osallistuu entistä useampi.
 
+## Kokeile omalla puhelimella (esittelytila)
+
+Esittelytilassa sovellus pyörii omalla tietokoneellasi, ja puhelin käyttää sitä saman wifin kautta.
+Kyselyn QR-koodin voi skannata suoraan näytöltä puhelimen kameralla, aivan kuten katsoja hallissa.
+Esittelytila sopii myös sovelluksen näyttämiseen seuralle.
+
+1. **Asenna Node.js** osoitteesta [nodejs.org](https://nodejs.org) (LTS-versio, oletusasetuksilla).
+2. **Lataa koodi:** avaa repositorio GitHubissa, paina vihreää **Code**-painiketta ja valitse
+   **Download ZIP**. Pura ZIP-tiedosto.
+3. **Avaa pääte puretussa kansiossa:**
+   - Windows: avaa kansio Resurssienhallinnassa, kirjoita osoiteriville `cmd` ja paina Enter.
+   - Mac: avaa Pääte (Terminal), kirjoita `cd ` (välilyönti perään), vedä kansio ikkunaan ja paina Enter.
+4. **Käynnistä:** kirjoita `npm install` (vain ensimmäisellä kerralla) ja sen jälkeen `npm run demo`.
+5. **Skannaa** näytölle tuleva QR-koodi puhelimella. Puhelimen pitää olla samassa wifissä kuin kone.
+6. **Seuraa vastauksia** koneen selaimessa osoitteessa, jonka esittelytila tulostaa (salasana `kipina`).
+   Valitse **Testiottelu**. Siellä voit myös sulkea kyselyn ja arpoa voittajan.
+
+Esittelytila aloittaa aina puhtaalta pöydältä: mukana on keksittyä esimerkkidataa ja tyhjä Testiottelu,
+jossa on pelipaidan arvonta. Data nollautuu, kun esittelytila käynnistetään uudelleen. Lopetus: Ctrl+C.
+
+Jos puhelin ei saa yhteyttä, salli Node.js tietokoneen palomuurissa (Windows ja Mac kysyvät tätä
+ensimmäisellä kerralla). Tarkista myös, ettei wifi ole vierasverkko, joka estää laitteiden väliset yhteydet.
+Samalla puhelimella voi vastata kuhunkin otteluun kerran. Kokeile uudelleen selaimen yksityisessä tilassa
+tai luo hallinnassa uusi ottelu.
+
 ## Asennus ja käynnistys
 
 Vaatii Node.js 22.13:n tai uudemman. Tietokantana toimii Noden sisäänrakennettu SQLite, joten erillistä
@@ -151,12 +176,19 @@ docker run -p 3000:3000 -v kipina-data:/app/data \
 
 ## Seuran ilme (logo ja värit)
 
-- **Logo:** lisää seuran logo tiedostoksi `public/brand/logo.svg` (tai `logo.png`, `logo.webp`, `logo.jpg`).
-  Se näkyy kyselyssä, hallintapaneelissa, julisteessa ja selaimen välilehdellä. Ennen sitä käytetään
-  neutraalia koripallokuvaketta (`public/brand/placeholder-logo.svg`).
-- **Värit:** seuran värit ovat `--brand`-muuttujissa tiedoston [`public/styles.css`](public/styles.css) alussa
-  (vaalea ja tumma tila) sekä julisteen tyyleissä ([`public/admin/juliste.html`](public/admin/juliste.html)).
-  Oletuksena käytetään mustavalkoista ilmettä pelipaitojen mukaan.
+Ilme noudattaa Kipinä Basketin visuaalista ilmettä (Partnership Deck, kausi 2026–2027).
+
+- **Logo:** seuran päälogo on tiedostossa `public/brand/logo.png` (läpinäkyvä tausta, 473 × 640 px).
+  Se näkyy kyselyssä, hallintapaneelissa, julisteessa ja selaimen välilehdellä. Logon voi vaihtaa
+  korvaamalla tiedoston (myös `logo.svg`, `logo.webp` tai `logo.jpg` käyvät). Jos logo puuttuu, käytetään
+  varakuvaketta `public/brand/placeholder-logo.svg`.
+- **Värit:** seuran paletti on kulta `#CCB687`, musta `#000000` ja valkoinen `#FFFFFF`. Ne ovat
+  `--brand`- ja `--gold`-muuttujissa tiedoston [`public/styles.css`](public/styles.css) alussa (vaalea ja
+  tumma tila) sekä julisteen tyyleissä ([`public/admin/juliste.html`](public/admin/juliste.html)).
+  Kulta on valkoisella pohjalla liian vaalea pieneksi tekstiksi, joten pienissä kultaisissa teksteissä
+  käytetään samaa sävyä tummennettuna (`--gold-ink: #766032`).
+- **Fontti:** sanamerkissä ja otsikoissa on leveä ja lihava Archivo (avoin lisenssi), joka on lähellä seuran
+  materiaalien typografiaa. Fontti tarjoillaan omalta palvelimelta, ei Googlen kautta.
 - Kaavioiden värit ovat erillään seuran väreistä, jotta ne pysyvät luettavina ja värisokeille sopivina.
 
 ## Kehitys
@@ -164,6 +196,7 @@ docker run -p 3000:3000 -v kipina-data:/app/data \
 ```bash
 npm test        # API- ja tilastotestit (node:test)
 npm run seed    # esimerkkidata
+npm run demo    # esittelytila puhelimella kokeiluun
 ```
 
 Rakenne:
@@ -178,5 +211,7 @@ src/db.js              SQLite-tietokanta
 public/survey.html     katsojan kysely (mobiili)
 public/admin/          dashboardit, kirjautuminen ja tulostettava juliste
 public/brand/          seuran logo
+scripts/seed.js        esimerkkidata
+scripts/demo.js        esittelytila puhelimella kokeiluun
 test/                  testit
 ```
