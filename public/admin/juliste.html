@@ -15,8 +15,8 @@
       font-stretch: 62% 125%;
     }
     :root {
-      --brand: #111111; --brand-ink: #ffffff; --gold: #d2bb8a;
-      --hero: linear-gradient(120deg, #050303 0%, #1c0907 55%, #3a1511 100%);
+      --brand: #000000; --brand-ink: #ffffff; --gold: #ccb687;
+      --hero: linear-gradient(135deg, #000000 0%, #000000 55%, #1a1712 100%);
       --display: 'Archivo', system-ui, sans-serif;
     }
     @page { size: A4; margin: 0; }
@@ -26,9 +26,7 @@
     .bar { max-width: 210mm; margin: 16px auto; display: flex; gap: 8px; padding: 0 16px; }
     .bar button { font: inherit; font-weight: 600; padding: .6rem 1rem; border-radius: 10px; border: 0; background: var(--brand); color: var(--brand-ink); cursor: pointer; }
     .poster { width: 210mm; height: 297mm; margin: 0 auto 32px; background: #fff; padding: 16mm 18mm 12mm; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden; }
-    .brand { display: flex; align-items: center; gap: 5mm; font-family: var(--display); font-stretch: 125%; font-weight: 900; text-transform: uppercase; font-size: 22pt; }
-    .brand .w2 { color: var(--gold); }
-    .brand img { width: 20mm; height: 20mm; object-fit: contain; }
+    .brand img { height: 36mm; width: auto; display: block; }
     h1 { font-family: var(--display); font-stretch: 125%; font-weight: 900; text-transform: uppercase; font-size: 30pt; line-height: 1.05; margin: 8mm 0 3mm; }
     .sub { font-size: 16pt; color: #333; margin: 0; }
     .match { margin-top: 3mm; font-size: 13pt; color: #52514e; }
@@ -47,7 +45,7 @@
 <body>
   <div class="bar"><button onclick="print()">Tulosta</button></div>
   <div class="poster">
-    <div class="brand"><img src="/brand/logo" alt=""><span><span class="w1">Kipinä</span> <span class="w2">Basket</span></span></div>
+    <div class="brand"><img src="/brand/logo" alt="Kipinä Basket"></div>
     <h1>Miten onnistuimme tänään?</h1>
     <p class="sub">Kerro mielipiteesi ottelusta – vie alle minuutin.</p>
     <div class="match" id="match"></div>

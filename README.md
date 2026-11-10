@@ -151,12 +151,19 @@ docker run -p 3000:3000 -v kipina-data:/app/data \
 
 ## Seuran ilme (logo ja värit)
 
-- **Logo:** lisää seuran logo tiedostoksi `public/brand/logo.svg` (tai `logo.png`, `logo.webp`, `logo.jpg`).
-  Se näkyy kyselyssä, hallintapaneelissa, julisteessa ja selaimen välilehdellä. Ennen sitä käytetään
-  neutraalia koripallokuvaketta (`public/brand/placeholder-logo.svg`).
-- **Värit:** seuran värit ovat `--brand`-muuttujissa tiedoston [`public/styles.css`](public/styles.css) alussa
-  (vaalea ja tumma tila) sekä julisteen tyyleissä ([`public/admin/juliste.html`](public/admin/juliste.html)).
-  Oletuksena käytetään mustavalkoista ilmettä pelipaitojen mukaan.
+Ilme noudattaa Kipinä Basketin visuaalista ilmettä (Partnership Deck, kausi 2026–2027).
+
+- **Logo:** seuran päälogo on tiedostossa `public/brand/logo.png` (läpinäkyvä tausta, 473 × 640 px).
+  Se näkyy kyselyssä, hallintapaneelissa, julisteessa ja selaimen välilehdellä. Logon voi vaihtaa
+  korvaamalla tiedoston (myös `logo.svg`, `logo.webp` tai `logo.jpg` käyvät). Jos logo puuttuu, käytetään
+  varakuvaketta `public/brand/placeholder-logo.svg`.
+- **Värit:** seuran paletti on kulta `#CCB687`, musta `#000000` ja valkoinen `#FFFFFF`. Ne ovat
+  `--brand`- ja `--gold`-muuttujissa tiedoston [`public/styles.css`](public/styles.css) alussa (vaalea ja
+  tumma tila) sekä julisteen tyyleissä ([`public/admin/juliste.html`](public/admin/juliste.html)).
+  Kulta on valkoisella pohjalla liian vaalea pieneksi tekstiksi, joten pienissä kultaisissa teksteissä
+  käytetään samaa sävyä tummennettuna (`--gold-ink: #766032`).
+- **Fontti:** sanamerkissä ja otsikoissa on leveä ja lihava Archivo (avoin lisenssi), joka on lähellä seuran
+  materiaalien typografiaa. Fontti tarjoillaan omalta palvelimelta, ei Googlen kautta.
 - Kaavioiden värit ovat erillään seuran väreistä, jotta ne pysyvät luettavina ja värisokeille sopivina.
 
 ## Kehitys

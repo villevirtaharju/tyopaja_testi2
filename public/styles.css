@@ -1,7 +1,7 @@
 /* Kipinä Basket – palautekysely. Värit roolin mukaan, tumma tila omina arvoinaan.
    SEURAN ILME: --brand-*, --gold* ja --hero -muuttujat (vaalea ja tumma tila), otsikkofontti
-   ja logo public/brand/-kansiossa. Värit kipinabasket.fi:n mukaan: musta, logon kulta ja
-   mustasta viininpunaiseen liukuva tausta. */
+   ja logo public/brand/-kansiossa. Värit Kipinä Basketin visuaalisesta ilmeestä
+   (Partnership Deck 2026–2027): kulta #CCB687, musta #000000 ja valkoinen #FFFFFF. */
 @font-face {
   /* Archivo (SIL OFL 1.1, public/fonts/ARCHIVO-OFL.txt), leveä ja lihava leikkaus sanamerkkiin ja otsikoihin. */
   font-family: 'Archivo';
@@ -19,13 +19,13 @@
   --text: #0b0b0b;
   --text-2: #52514e;
   --text-3: #75736e;
-  --brand: #111111;          /* painikkeet ja valinnat: musta */
-  --brand-hover: #2b2b2b;
+  --brand: #000000;          /* painikkeet ja valinnat: seuran musta */
+  --brand-hover: #262626;
   --brand-ink: #ffffff;      /* teksti brändivärin päällä */
-  --brand-soft: #f3efe6;
-  --gold: #d2bb8a;           /* logon kulta: sanamerkki, korostukset tummalla pohjalla */
-  --gold-ink: #7a5f28;       /* tumma kulta tekstiksi vaalealle pohjalle (6:1) */
-  --hero: linear-gradient(120deg, #050303 0%, #1c0907 55%, #3a1511 100%);
+  --brand-soft: #f5f0e6;
+  --gold: #ccb687;           /* seuran kulta: sanamerkki, korostukset tummalla pohjalla */
+  --gold-ink: #766032;       /* sama kulta tummennettuna tekstiksi vaalealle pohjalle (6:1) */
+  --hero: linear-gradient(135deg, #000000 0%, #000000 55%, #1a1712 100%);
   --font-display: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --focus: #2a78d6;
   --series-1: #2a78d6;
@@ -52,11 +52,11 @@
     --text: #ffffff;
     --text-2: #c3c2b7;
     --text-3: #9a998f;
-    --brand: #d2bb8a;
-    --brand-hover: #e2d1a8;
-    --brand-ink: #111111;
-    --brand-soft: #241a12;
-    --gold-ink: #d2bb8a;
+    --brand: #ccb687;
+    --brand-hover: #dac9a5;
+    --brand-ink: #000000;
+    --brand-soft: #1f1b14;
+    --gold-ink: #ccb687;
     --focus: #6da7ec;
     --series-1: #3987e5;
     --series-1-soft: #1c3a5e;
@@ -70,7 +70,7 @@
   color-scheme: dark;
   --bg: #111110; --surface: #1a1a19; --surface-2: #242422; --border: #34332f;
   --text: #ffffff; --text-2: #c3c2b7; --text-3: #9a998f;
-  --brand: #d2bb8a; --brand-hover: #e2d1a8; --brand-ink: #111111; --brand-soft: #241a12; --gold-ink: #d2bb8a; --focus: #6da7ec;
+  --brand: #ccb687; --brand-hover: #dac9a5; --brand-ink: #000000; --brand-soft: #1f1b14; --gold-ink: #ccb687; --focus: #6da7ec;
   --series-1: #3987e5; --series-1-soft: #1c3a5e; --grid: #2c2c29; --neutral-mid: #5c5b56;
   --good-text: #4fc64f; --bad-text: #f08080;
 }
@@ -112,7 +112,7 @@ label.field span.hint { font-weight: 400; color: var(--text-2); }
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; box-shadow: var(--shadow); }
 .error { color: var(--bad-text); font-weight: 600; }
 .brandmark { display: inline-flex; align-items: center; gap: .6rem; color: inherit; text-decoration: none; }
-.brandmark .logo { width: 40px; height: 40px; object-fit: contain; }
+.brandmark .logo { height: 46px; width: auto; }
 .wordmark { font-family: var(--font-display); font-stretch: 125%; font-weight: 900; text-transform: uppercase; font-size: 1.15rem; letter-spacing: .01em; white-space: nowrap; }
 .wordmark .w2 { color: var(--gold); }
 .brandmark .sub { font-weight: 500; color: var(--text-2); }
@@ -152,7 +152,7 @@ label.field span.hint { font-weight: 400; color: var(--text-2); }
 .submit-bar { margin-top: 1.5rem; display: grid; gap: .75rem; }
 .submit-bar .btn { width: 100%; min-height: 54px; font-size: 1.1rem; }
 .thanks { text-align: center; padding: 2.5rem 1rem 1rem; }
-.thanks .thanks-logo { width: 96px; height: 96px; object-fit: contain; }
+.thanks .thanks-logo { height: 140px; width: auto; }
 
 /* Arvonta */
 .raffle-banner { display: flex; gap: .7rem; align-items: center; margin-top: .9rem; padding: .7rem .85rem; border-radius: 10px; background: rgb(255 255 255 / 6%); border: 2px solid var(--gold); color: #fff; }
