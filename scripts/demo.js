@@ -11,7 +11,7 @@ const path = require('node:path');
 const QRCode = require('qrcode');
 const { openDb } = require('../src/db');
 const { createApp } = require('../src/app');
-const { seed } = require('./seed');
+const { seedDemoData, createTestMatch } = require('../src/demo-data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const PASSWORD = process.env.ADMIN_PASSWORD || 'kipina';
@@ -30,12 +30,8 @@ function lanAddress() {
 // Esittelytila alkaa aina puhtaalta pöydältä, jotta Testiottelussa näkyvät vain omat vastaukset.
 for (const suffix of ['', '-wal', '-shm']) fs.rmSync(DB_FILE + suffix, { force: true });
 const db = openDb(DB_FILE);
-seed(db, () => {});
-const today = new Date().toISOString().slice(0, 10);
-const testMatch = db.createEvent({
-  opponent: 'Testiottelu', date: `${today}T18:00`, venue: 'Äänekoski Areena Pankkari', series: 'Korisliiga',
-  attendance: null, notes: 'Esittelytilan testiottelu', raffle_enabled: true, raffle_prize: 'Pelaajan pelipaita',
-});
+seedDemoData(db, () => {});
+const testMatch = createTestMatch(db);
 
 const base = `http://${lanAddress()}:${PORT}`;
 const surveyUrl = `${base}/k/${testMatch.code}`;

@@ -267,3 +267,39 @@ test('puhelinnumerot ja kannustimen vaikutus', () => {
   assert.match(i.text, /Arvonnan kanssa vastauksia tuli keskimäärin 55 \/ ottelu \(vastaus-% 11\), ilman arvontaa 30 \/ ottelu \(vastaus-% 6\)/);
   assert.equal(incentiveInsight([row(true, 10, null)]), null);
 });
+
+// --- Julkinen testiversio --------------------------------------------------------
+
+test('testitila näkyy kyselylle ja hallinnalle, ja oletuksena se on pois päältä', async () => {
+  assert.deepEqual(await (await req('/api/config')).json(), { testMode: false });
+
+  const tdb = openDb(':memory:');
+  const tserver = createApp({ db: tdb, adminPassword: 'x', testMode: true }).listen(0);
+  await new Promise((r) => tserver.once('listening', r));
+  try {
+    const tbase = `http://127.0.0.1:${tserver.address().port}`;
+    assert.deepEqual(await (await fetch(`${tbase}/api/config`)).json(), { testMode: true });
+    const { ensureTestData } = require('../src/demo-data');
+    const testMatch = ensureTestData(tdb);
+    const pub = await (await fetch(`${tbase}/api/public/events/${testMatch.code}`)).json();
+    assert.equal(pub.testMode, true);
+    assert.equal(pub.event.opponent, 'Testiottelu');
+    assert.equal(pub.raffle.prize, 'Pelaajan pelipaita');
+  } finally {
+    tserver.close();
+  }
+});
+
+test('esimerkkidata ja Testiottelu luodaan vain tyhjään tietokantaan', () => {
+  const { ensureTestData } = require('../src/demo-data');
+  const tdb = openDb(':memory:');
+  const created = ensureTestData(tdb);
+  assert.equal(created.opponent, 'Testiottelu');
+  assert.ok(created.is_open && created.raffle_enabled);
+  const count = tdb.listEvents().length;
+  assert.ok(count > 1, 'esimerkkiotteluita luotiin');
+  assert.equal(ensureTestData(tdb), null, 'toinen käynnistys ei luo mitään');
+  assert.equal(tdb.listEvents().length, count);
+  // esimerkkiarvontojen osallistumispäivä on tämä päivä, joten ne eivät poistu heti säilytysajan takia
+  assert.equal(tdb.purgeRaffleEntries(14), 0);
+});

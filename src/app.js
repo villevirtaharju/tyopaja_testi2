@@ -19,6 +19,7 @@ function createApp({
   publicUrl,
   trustProxy = 'loopback, linklocal, uniquelocal',
   raffle: raffleConfig = {},
+  testMode = false, // julkinen testiversio: sivuilla näkyy "Testiversio", arvontaa ei oikeasti järjestetä
 }) {
   const app = express();
   // Luotetaan oletuksena vain yksityisverkon välityspalvelimiin (esim. pilvipalvelun kuormantasaaja),
@@ -82,6 +83,8 @@ function createApp({
     res.json({ ok: true });
   });
 
+  app.get('/api/config', (req, res) => res.json({ testMode }));
+
   // --- Julkinen kysely ----------------------------------------------------
 
   app.get('/api/public/events/:code', (req, res) => {
@@ -92,6 +95,7 @@ function createApp({
       questions: QUESTIONS,
       raffle: raffleOpen(event) ? { prize: event.raffle_prize, ...raffle.rules(event, raffleOpts) } : null,
       alreadyAnswered: Boolean(parseCookies(req)[answeredCookie(event)]),
+      testMode,
     });
   });
 

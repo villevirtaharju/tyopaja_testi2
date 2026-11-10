@@ -1,10 +1,12 @@
 const path = require('node:path');
 const { openDb } = require('./src/db');
 const { createApp } = require('./src/app');
+const { ensureTestData } = require('./src/demo-data');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, 'data', 'palaute.db');
 const RETENTION_DAYS = Number(process.env.RAFFLE_RETENTION_DAYS) || 60;
+const TEST_MODE = process.env.TEST_MODE === 'true';
 
 let adminPassword = process.env.ADMIN_PASSWORD;
 if (!adminPassword) {
@@ -13,11 +15,18 @@ if (!adminPassword) {
 }
 
 const db = openDb(DB_FILE);
+if (TEST_MODE) {
+  // Julkinen testiversio: ensimmäisellä käynnistyksellä esimerkkidata ja Testiottelu valmiiksi.
+  const created = ensureTestData(db);
+  if (created) console.log(`Testitila: luotiin esimerkkidata ja Testiottelu (kysely /k/${created.code}).`);
+}
 const app = createApp({
   db,
   adminPassword,
   sessionSecret: process.env.SESSION_SECRET,
-  publicUrl: process.env.PUBLIC_URL,
+  // Renderissä palvelun oma osoite tulee automaattisesti RENDER_EXTERNAL_URL-muuttujassa.
+  publicUrl: process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL,
+  testMode: TEST_MODE,
   ...(process.env.TRUST_PROXY !== undefined && { trustProxy: parseTrustProxy(process.env.TRUST_PROXY) }),
   raffle: {
     organizer: process.env.RAFFLE_ORGANIZER,

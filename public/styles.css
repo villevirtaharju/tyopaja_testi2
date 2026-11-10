@@ -154,6 +154,10 @@ label.field span.hint { font-weight: 400; color: var(--text-2); }
 .thanks { text-align: center; padding: 2.5rem 1rem 1rem; }
 .thanks .thanks-logo { height: 140px; width: auto; }
 
+/* Julkinen testiversio */
+.test-banner { background: var(--warn); color: #000; text-align: center; font-weight: 700; font-size: .9rem; padding: .5rem 1rem; }
+.test-badge { background: var(--warn); color: #000; font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; padding: .15rem .55rem; border-radius: 999px; white-space: nowrap; }
+
 /* Arvonta */
 .raffle-banner { display: flex; gap: .7rem; align-items: center; margin-top: .9rem; padding: .7rem .85rem; border-radius: 10px; background: rgb(255 255 255 / 6%); border: 2px solid var(--gold); color: #fff; }
 .raffle-banner b { color: var(--gold); }

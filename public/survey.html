@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
+  <div id="test-banner" class="test-banner" role="note" hidden>Testiversio – tämä ei ole Kipinä Basketin virallinen kysely</div>
   <div class="survey">
     <header><span class="brandmark"><img class="logo" src="/brand/logo" alt=""><span class="wordmark"><span class="w1">Kipinä</span> <span class="w2">Basket</span></span></span></header>
     <div id="loading" class="muted">Ladataan kyselyä…</div>
@@ -59,6 +60,7 @@
   const enteredKey = `kipina-arvonnassa-${code}`;
 
   let raffle = null;
+  let testMode = false;
 
   function fmtDate(d) {
     const dt = new Date(d.length === 10 ? d + 'T12:00' : d);
@@ -161,6 +163,7 @@
       <h2><span aria-hidden="true">🎁</span> Osallistu arvontaan</h2>
       <p style="margin:.25rem 0">Palkinto: <b>${esc(raffle.prize)}</b></p>
       <p class="small muted" style="margin:0">Palautteesi on jo tallennettu nimettömänä. Yhteystietojasi ei yhdistetä vastauksiisi.</p>
+      ${testMode ? '<p class="notice" style="margin:.75rem 0 0">Testiversio: arvontaa ei oikeasti järjestetä. Voit kokeilla lomaketta keksityillä tiedoilla, älä anna oikeita yhteystietojasi.</p>' : ''}
       <form class="raffle-form" novalidate>
         <label class="field">Nimi<input name="name" autocomplete="name" maxlength="100" required></label>
         <label class="field">Sähköposti<input name="email" type="email" autocomplete="email" inputmode="email" maxlength="254"></label>
@@ -232,6 +235,8 @@
       if (!ok) return fatal(`<h2>Kyselyä ei löytynyt</h2><p class="muted">Tarkista QR-koodi tai osoite.</p>`);
       const { event, questions, alreadyAnswered } = data;
       raffle = data.raffle;
+      testMode = Boolean(data.testMode);
+      $('#test-banner').hidden = !testMode;
       if (alreadyAnswered || local.get(answeredKey)) return showThanks();
       if (!event.is_open) return fatal(`<h2>Kysely on suljettu</h2><p class="muted">Kiitos mielenkiinnosta! Tämän ottelun palautekysely ei ole enää auki.</p>`);
 
@@ -240,7 +245,8 @@
       document.title = `Palaute: Kipinä – ${event.opponent}`;
       if (raffle) {
         $('#raffle-banner').innerHTML = `<span class="gift" aria-hidden="true">🎁</span>
-          <span><b>Vastaa ja osallistu arvontaan!</b><br>Palkinto: ${esc(raffle.prize)}</span>`;
+          <span><b>Vastaa ja osallistu arvontaan!</b><br>Palkinto: ${esc(raffle.prize)}${testMode
+            ? '<br><span class="small">Testiversio: arvontaa ei oikeasti järjestetä.</span>' : ''}</span>`;
         $('#raffle-banner').hidden = false;
         $('#raffle-note').hidden = false;
       }
