@@ -100,23 +100,32 @@ Kyselyn QR-koodin voi skannata suoraan näytöltä puhelimen kameralla, aivan ku
 Esittelytila sopii myös sovelluksen näyttämiseen seuralle.
 
 1. **Asenna Node.js** osoitteesta [nodejs.org](https://nodejs.org) (LTS-versio, oletusasetuksilla).
-2. **Lataa koodi:** avaa repositorio GitHubissa, paina vihreää **Code**-painiketta ja valitse
-   **Download ZIP**. Pura ZIP-tiedosto.
-3. **Avaa pääte puretussa kansiossa:**
-   - Windows: avaa kansio Resurssienhallinnassa, kirjoita osoiteriville `cmd` ja paina Enter.
-   - Mac: avaa Pääte (Terminal), kirjoita `cd ` (välilyönti perään), vedä kansio ikkunaan ja paina Enter.
-4. **Käynnistä:** kirjoita `npm install` (vain ensimmäisellä kerralla) ja sen jälkeen `npm run demo`.
-5. **Skannaa** näytölle tuleva QR-koodi puhelimella. Puhelimen pitää olla samassa wifissä kuin kone.
-6. **Seuraa vastauksia** koneen selaimessa osoitteessa, jonka esittelytila tulostaa (salasana `kipina`).
+2. **Lataa koodi:** avaa repositorio GitHubissa, valitse haaraksi `main`, paina vihreää **Code**-painiketta
+   ja valitse **Download ZIP**. Napsauta ZIP-tiedostoa hiiren oikealla ja valitse **Pura kaikki** (Windows),
+   tai tuplaklikkaa sitä (Mac).
+3. **Tuplaklikkaa käynnistystiedostoa** puretussa kansiossa:
+   - Windows: `Kaynnista-demo-Windows.bat`. Jos Windows varoittaa ("Windows suojasi tietokoneesi"),
+     valitse **Lisätietoja** ja sitten **Suorita silti**.
+   - Mac: `Kaynnista-demo-Mac.command`. Jos Mac ei suostu avaamaan tiedostoa, napsauta sitä hiiren
+     oikealla, valitse **Avaa** ja vahvista **Avaa**.
+
+   Ensimmäisellä kerralla tiedosto asentaa tarvittavat osat, mikä kestää noin minuutin.
+4. **Skannaa** ikkunaan tuleva QR-koodi puhelimella. Puhelimen pitää olla samassa wifissä kuin kone.
+5. **Seuraa vastauksia** koneen selaimessa osoitteessa, jonka ikkuna näyttää (salasana `kipina`).
    Valitse **Testiottelu**. Siellä voit myös sulkea kyselyn ja arpoa voittajan.
 
+Pidä ikkuna auki kokeilun ajan. Lopetus: sulje ikkuna tai paina Ctrl+C.
+
 Esittelytila aloittaa aina puhtaalta pöydältä: mukana on keksittyä esimerkkidataa ja tyhjä Testiottelu,
-jossa on pelipaidan arvonta. Data nollautuu, kun esittelytila käynnistetään uudelleen. Lopetus: Ctrl+C.
+jossa on pelipaidan arvonta. Data nollautuu, kun esittelytila käynnistetään uudelleen.
 
 Jos puhelin ei saa yhteyttä, salli Node.js tietokoneen palomuurissa (Windows ja Mac kysyvät tätä
 ensimmäisellä kerralla). Tarkista myös, ettei wifi ole vierasverkko, joka estää laitteiden väliset yhteydet.
 Samalla puhelimella voi vastata kuhunkin otteluun kerran. Kokeile uudelleen selaimen yksityisessä tilassa
 tai luo hallinnassa uusi ottelu.
+
+Käynnistystiedostojen sijaan voit myös avata päätteen kansiossa ja kirjoittaa `npm install` ja
+`npm run demo`.
 
 ## Asennus ja käynnistys
 
@@ -213,5 +222,6 @@ public/admin/          dashboardit, kirjautuminen ja tulostettava juliste
 public/brand/          seuran logo
 scripts/seed.js        esimerkkidata
 scripts/demo.js        esittelytila puhelimella kokeiluun
+Kaynnista-demo-*       esittelytilan käynnistys tuplaklikkaamalla (Windows .bat, Mac .command)
 test/                  testit
 ```

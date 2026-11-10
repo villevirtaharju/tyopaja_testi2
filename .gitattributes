@@ -1,0 +1,3 @@
+# Windowsin käynnistystiedosto tarvitsee CRLF-rivinvaihdot, Macin LF-rivinvaihdot.
+*.bat text eol=crlf
+*.command text eol=lf
